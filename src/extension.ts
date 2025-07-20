@@ -1,26 +1,17 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import { buildSpec } from './commands/buildSpec';
+import { previewSpec } from './commands/previewSpec';
+import { activateDiagnostics } from './utils/diagnostics';
+import { BikeshedHoverProvider } from './language/hoverProvider';
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+  context.subscriptions.push(
+    vscode.commands.registerCommand('bikeshedTools.buildSpec', buildSpec),
+    vscode.commands.registerCommand('bikeshedTools.previewSpec', previewSpec),
+    vscode.languages.registerHoverProvider('bikeshed', new BikeshedHoverProvider())
+  );
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "vscode-bikeshed-tools" is now active!');
-
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('vscode-bikeshed-tools.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from vscode-bikeshed-tools!');
-	});
-
-	context.subscriptions.push(disposable);
+  activateDiagnostics(context);
 }
 
-// This method is called when your extension is deactivated
 export function deactivate() {}

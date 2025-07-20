@@ -2,32 +2,82 @@
   "name": "vscode-bikeshed-tools",
   "displayName": "Bikeshed Tools",
   "description": "An extension that adds support for developing Bikeshed specs in Visual Studio Code",
-  "version": "0.0.1",
+  "version": "1.0.0",
+  "repository": {
+  "type": "git",
+  "url": "https://github.com/Yuxi-Labs/vscode-bikeshed-tools"
+},
+"bugs": {
+  "url": "https://github.com/Yuxi-Labs/vscode-bikeshed-tools/issues"
+},
+"homepage": "https://www.yuxilabs.com/vscode-bikeshed-tools",
+"icon": "assets/images/icons/bikeshed-tools-icon.png",
+"galleryBanner": {
+  "color": "#5e3b5b",
+  "theme": "dark"
+},
   "type": "commonjs",
   "engines": {
     "vscode": "^1.102.0"
   },
   "categories": [
+    "Programming Languages",
+    "Linters",
+    "Snippets",
+    "Formatters",
     "Other"
   ],
-  "activationEvents": [],
+  "keywords": [
+    "bikeshed",
+    "spec",
+    "editor",
+    "language support",
+    "W3C",
+    "WHATWG",
+    "markup",
+    "syntax highlighting"
+  ],
+  "activationEvents": [
+    "onLanguage:bikeshed",
+    "onCommand:bikeshedTools.buildSpec",
+    "onCommand:bikeshedTools.previewSpec"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
+    "grammars": [
+    {
+      "language": "bikeshed",
+      "scopeName": "source.bikeshed",
+      "path": "./syntaxes/bikeshed.tmLanguage.json"
+    }
+  ],
+    "languages": [
+    {
+      "id": "bikeshed",
+      "aliases": ["Bikeshed", "bikeshed"],
+      "extensions": [".bs"],
+      "configuration": "./language-configuration.json"
+    }
+  ],
     "commands": [
       {
-        "command": "vscode-bikeshed-tools.helloWorld",
-        "title": "Hello World"
+        "command": "bikeshedTools.buildSpec",
+        "title": "Bikeshed: Build Spec"
+      },
+      {
+        "command": "bikeshedTools.previewSpec",
+        "title": "Bikeshed: Preview Spec"
       }
     ],
     "configuration": {
-    "properties": {
-      "bikeshedTools.bikeshedPath": {
-        "type": "string",
-        "default": "bikeshed",
-        "description": "Path to the Bikeshed CLI executable"
+      "properties": {
+        "bikeshedTools.bikeshedPath": {
+          "type": "string",
+          "default": "bikeshed",
+          "description": "Path to the Bikeshed CLI executable"
+        }
       }
     }
-  }
   },
   "scripts": {
     "publish": "npm run build && npx vsce package",

@@ -1,0 +1,14 @@
+<pre class='metadata'>
+Title: Your Spec Title
+Shortname: your-spec
+Level: 1
+Status: w3c/UD
+URL: https://dlaliberte.github.io/bikeshed-examples/template.html
+Editor: Your Name, Your Company http://example.com/your-company, your-email@example.com, http://example.com/your-personal-website
+Abstract: A short description of your spec, one or two sentences.
+</pre>
+
+Introduction {#intro}
+=====================
+
+Introduction here.

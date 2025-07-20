@@ -21,7 +21,7 @@
             "type": "npm",
             "script": "watch:esbuild",
             "group": "build",
-            "problemMatcher": "$esbuild-watch",
+            "problemMatcher": "$tsc", // TODO: Replace with custom matcher for esbuild output
             "isBackground": true,
             "label": "npm: watch:esbuild",
             "presentation": {
