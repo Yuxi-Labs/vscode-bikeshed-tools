@@ -1,16 +1,29 @@
 {
-	"compilerOptions": {
-		"module": "Node16",
-		"target": "ES2022",
-		"lib": [
-			"ES2022"
-		],
-		"sourceMap": true,
-		"rootDir": "src",
-		"strict": true,   /* enable all strict type-checking options */
-		/* Additional Checks */
-		// "noImplicitReturns": true, /* Report error when not all code paths in function return a value. */
-		// "noFallthroughCasesInSwitch": true, /* Report errors for fallthrough cases in switch statement. */
-		// "noUnusedParameters": true,  /* Report errors on unused parameters. */
-	}
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",                   // Match your "type": "commonjs"
+    "lib": ["ES2022"],
+
+    "strict": true,
+    "sourceMap": true,
+
+    "rootDir": ".",                         // Include both src/ and test/
+    "outDir": "dist",                       // This is where compiled output goes
+
+    "esModuleInterop": true,                // Helpful for importing CommonJS modules
+    "forceConsistentCasingInFileNames": true,
+
+    /* Optional sanity checks you *should* enable but probably won’t */
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedParameters": false             // Set to true if you enjoy pain
+  },
+  "include": [
+    "src/**/*",
+    "test/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }

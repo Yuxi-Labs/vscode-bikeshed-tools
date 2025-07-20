@@ -1,8 +1,9 @@
 {
   "name": "vscode-bikeshed-tools",
-  "displayName": "vscode-bikeshed-tools",
+  "displayName": "Bikeshed Tools",
   "description": "An extension that adds support for developing Bikeshed specs in Visual Studio Code",
   "version": "0.0.1",
+  "type": "commonjs",
   "engines": {
     "vscode": "^1.102.0"
   },
@@ -17,15 +18,24 @@
         "command": "vscode-bikeshed-tools.helloWorld",
         "title": "Hello World"
       }
-    ]
+    ],
+    "configuration": {
+    "properties": {
+      "bikeshedTools.bikeshedPath": {
+        "type": "string",
+        "default": "bikeshed",
+        "description": "Path to the Bikeshed CLI executable"
+      }
+    }
+  }
   },
   "scripts": {
-    "vscode:prepublish": "npm run package",
+    "publish": "npm run build && npx vsce package",
     "compile": "npm run check-types && npm run lint && node esbuild.js",
     "watch": "npm-run-all -p watch:*",
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "build": "npm run check-types && npm run lint && node esbuild.js --production",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
