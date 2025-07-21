@@ -75,7 +75,13 @@
           "type": "string",
           "default": "bikeshed",
           "description": "Path to the Bikeshed CLI executable"
-        }
+        },
+        "bikeshedTools.livePreview": {
+  "type": "boolean",
+  "default": false,
+  "description": "Enable live preview panel updates while editing Bikeshed documents."
+}
+
       }
     }
   },
