@@ -3,6 +3,7 @@
   "displayName": "Bikeshed Tools",
   "description": "An extension that adds support for developing Bikeshed specs in Visual Studio Code",
   "version": "1.0.0",
+  "publisher": "yuxi-labs",
   "repository": {
   "type": "git",
   "url": "https://github.com/Yuxi-Labs/vscode-bikeshed-tools"

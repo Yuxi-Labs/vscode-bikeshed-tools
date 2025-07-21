@@ -7,13 +7,11 @@ let previewPanel: vscode.WebviewPanel | undefined;
 let updateTimer: NodeJS.Timeout | undefined;
 
 export function initLivePreview(context: vscode.ExtensionContext) {
-  // Save-triggered fallback (always enabled)
   vscode.workspace.onDidSaveTextDocument(async (doc) => {
     if (!isBikeshedFile(doc)) return;
     updatePreview(doc);
   });
 
-  // Live typing preview (optional)
   vscode.workspace.onDidChangeTextDocument((event) => {
     const doc = event.document;
     if (!isBikeshedFile(doc)) return;
@@ -23,7 +21,7 @@ export function initLivePreview(context: vscode.ExtensionContext) {
     if (!liveEnabled) return;
 
     clearTimeout(updateTimer);
-    updateTimer = setTimeout(() => updatePreview(doc), 400); // Throttle delay
+    updateTimer = setTimeout(() => updatePreview(doc), 400);
   });
 }
 
@@ -34,6 +32,8 @@ function isBikeshedFile(doc: vscode.TextDocument): boolean {
 async function updatePreview(doc: vscode.TextDocument) {
   const bikeshedPath = getBikeshedPath();
   if (!bikeshedPath) return;
+
+  await doc.save();
 
   const html = await runBikeshed(bikeshedPath, doc.fileName);
   if (!html) return;
@@ -51,13 +51,12 @@ async function updatePreview(doc: vscode.TextDocument) {
     });
   }
 
-  previewPanel.webview.html = html;
+  previewPanel.webview.html = wrapHtml(html);
 }
 
 function runBikeshed(bikeshedPath: string, filePath: string): Promise<string | null> {
   return new Promise((resolve) => {
-    const proc = cp.spawn(bikeshedPath, ['spec', filePath, '-f', 'text', '-o', '-'], { shell: true });
-
+    const proc = cp.spawn(bikeshedPath, ['spec', filePath, '-f', 'html', '-o', '-'], { shell: true });
 
     let output = '';
     let error = '';
@@ -79,4 +78,14 @@ function runBikeshed(bikeshedPath: string, filePath: string): Promise<string | n
       }
     });
   });
+}
+
+function wrapHtml(body: string): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head><meta charset="utf-8"></head>
+      <body>${body}</body>
+    </html>
+  `;
 }
