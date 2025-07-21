@@ -1,71 +1,83 @@
-# vscode-bikeshed-tools README
+# Bikeshed Tools for VS Code
 
-This is the README for your extension "vscode-bikeshed-tools". After writing up a brief description, we recommend including the following sections.
+<p>
+  <!-- Build status -->
+  <img src="https://img.shields.io/github/actions/workflow/status/Yuxi-Labs/vscode-bikeshed-tools/ci.yml?branch=production" alt="Build Status" />
+
+  <!-- Latest Release -->
+  <img src="https://img.shields.io/github/v/release/Yuxi-Labs/vscode-bikeshed-tools?include_prereleases&sort=semver" alt="Latest Release" />
+
+  <!-- Open Issues -->
+  <img src="https://img.shields.io/github/issues/Yuxi-Labs/vscode-bikeshed-tools" alt="Open Issues" />
+
+  <!-- Pull Requests -->
+  <img src="https://img.shields.io/github/issues-pr/Yuxi-Labs/vscode-bikeshed-tools" alt="Pull Requests" />
+
+  <!-- Last Commit -->
+  <img src="https://img.shields.io/github/last-commit/Yuxi-Labs/vscode-bikeshed-tools" alt="Last Commit" />
+
+  <!-- Contributors -->
+  <img src="https://img.shields.io/github/contributors/Yuxi-Labs/vscode-bikeshed-tools" alt="Contributors" />
+
+  <!-- License -->
+  <img src="https://img.shields.io/github/license/Yuxi-Labs/vscode-bikeshed-tools" alt="License" />
+</p>
+
+
+This extension enables spec editors to author, preview and build [Bikeshed](https://tabatkins.github.io/bikeshed/) specifications without leaving VS Code.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+- Syntax Highlighting  
+  Makes your spec easier to scan and less soul-crushing to edit.
 
-For example if there is an image subfolder under your extension project workspace:
+- Snippets & Suggestions  
+  Common metadata and macros just a few keystrokes away.
 
-\!\[feature X\]\(images/feature-x.png\)
+- Hover Info  
+  Explanations of macros and metadata without leaving the editor.
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+- Build Command  
+  Run `Bikeshed: Build Spec` to generate your spec from `.bs` source.
 
-## Requirements
+- Live Preview  
+  Auto-updating HTML preview side-by-side with your source. See your doc come alive on save.
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- Error Feedback  
+  Bikeshed errors go directly to the output panel and status bar. No more playing detective in your terminal.
 
-## Extension Settings
+## Getting Started
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+1. Install Bikeshed CLI  
+   You need [Python](https://www.python.org) installed. Then:
 
-For example:
+   ```bash
+   python3 -m pip install --upgrade bikeshed
+   bikeshed update
+   ```
 
-This extension contributes the following settings:
+2. Tell VS Code where to find it
+   If it's not globally available (e.g., installed in a virtualenv), set the path in your settings.json:
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+   ```json
+   {
+    "bikeshedTools.bikeshedPath": "/path/to/bikeshed"
+   }
+   ```
 
-## Known Issues
+3. Start Writing
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+   Create a .bs file and add a `<pre class="metadata">` block to begin. Use the command palette to run Bikeshed: Build Spec.
 
-## Release Notes
+5. Known Limitations
+   - Preview only updates on save (live typing is coming)
+   - Syntax highlighting is basic — Bikeshed's grammar is complex and evolving
+   - No inline linting... yet
 
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+6. Roadmap
+    - Inline error squiggles (diagnostics)
+    - Better autocomplete for macros and metadata
+    - Smarter preview refresh
+    - Command to open generated HTML in browser
+    - Full Bikeshed grammar support
+    

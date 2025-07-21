@@ -1,0 +1,47 @@
+{
+  "name": "Bikeshed",
+  "scopeName": "source.bikeshed",
+  "fileTypes": ["bs"],
+  "patterns": [
+    {
+      "name": "comment.line.double-slash.bikeshed",
+      "match": "//.*$"
+    },
+    {
+      "name": "meta.metadata.bikeshed",
+      "begin": "<pre\\s+class=['\"]metadata['\"]>",
+      "end": "</pre>",
+      "patterns": [
+        {
+          "name": "keyword.other.metadata.key.bikeshed",
+          "match": "^(\\w+):"
+        },
+        {
+          "name": "string.unquoted.metadata.value.bikeshed",
+          "match": "^\\w+:\\s*(.*)$"
+        }
+      ]
+    },
+    {
+      "name": "markup.heading.setext.bikeshed",
+      "match": "^(=+|\\-+)$"
+    },
+    {
+      "name": "entity.name.section.bikeshed",
+      "match": "^([A-Za-z0-9\\s]+)\\s+\\{#[-_a-zA-Z0-9]+\\}$"
+    },
+    {
+      "name": "keyword.other.inline.macro.bikeshed",
+      "match": "\\[[A-Z_]+\\]"
+    },
+    {
+      "name": "markup.bold.bikeshed",
+      "match": "\\*\\*(.*?)\\*\\*"
+    },
+    {
+      "name": "markup.italic.bikeshed",
+      "match": "\\*(.*?)\\*"
+    }
+  ],
+  "uuid": "bikshed-syntax-2025"
+}

@@ -1,0 +1,22 @@
+# EditorConfig
+
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+
+# 2-space indentation for TypeScript, Markdown, ES Modules
+[*.{js,ts,md,mjs,gptp,json,editorconfig}]
+indent_style = space
+indent_size = 2
+
+# Tab indentation for Makefile
+[Makefile]
+indent_style = tab
+
+# Override for JS files in lib/ directory
+[lib/**/*.js]
+indent_style = space
+indent_size = 2
