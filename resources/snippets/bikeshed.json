@@ -8,20 +8,48 @@
       "Level: ${3:1}",
       "Status: ${4:w3c/UD}",
       "URL: ${5:https://example.com/your-spec.html}",
-      "Editor: ${6:Your Name}, ${7:Your Org}, ${8:you@example.com}",
-      "Abstract: ${9:A brief description of the spec.}",
+      "Latest: ${6:https://w3.org/TR/your-spec/}",
+      "ED: ${7:https://w3c.github.io/your-spec/}",
+      "Previous: ${8:https://www.w3.org/TR/previous-spec/}",
+      "Editor: ${9:Your Name}, ${10:Your Org}, ${11:you@example.com}",
+      "Abstract: ${12:A brief abstract of your spec.}",
       "</pre>"
     ],
-    "description": "Insert a metadata block"
+    "description": "Creates a full metadata block with all common fields"
   },
+
   "Section Header": {
     "prefix": "section",
     "body": [
-      "${1:Section Title} {#${2:id}}",
+      "${1:Section Title} {#${2:section-id}}",
       "====================",
       "",
       "$0"
     ],
-    "description": "Insert a section header with ID"
+    "description": "Adds a section heading with an anchor ID"
+  },
+
+  "Inline Link": {
+    "prefix": "link",
+    "body": [
+      "[[${1:term-to-link}]]"
+    ],
+    "description": "Creates an inline Bikeshed link"
+  },
+
+  "Inline Reference": {
+    "prefix": "ref",
+    "body": [
+      "{{${1:biblio-key}}}"
+    ],
+    "description": "Creates a bibliographic reference"
+  },
+
+  "Macro: Inline": {
+    "prefix": "macro",
+    "body": [
+      "[${1:MACRO_NAME} ${2:optional-params}]"
+    ],
+    "description": "Inserts an inline macro"
   }
 }

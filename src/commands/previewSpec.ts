@@ -1,9 +1,14 @@
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
-import { getBikeshedPath } from '../utils/bikeshedPath';
 import * as path from 'path';
+import * as fs from 'fs';
+import * as os from 'os';
+import { getPythonPath } from '../utils/pythonPath';
 
-export async function previewSpec() {
+/**
+ * Preview the current Bikeshed spec as HTML in a side panel.
+ */
+export async function previewSpec(output?: vscode.OutputChannel) {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     vscode.window.showErrorMessage('No active editor. Open a Bikeshed (.bs) file to preview.');
@@ -11,82 +16,125 @@ export async function previewSpec() {
   }
 
   const doc = editor.document;
-  if (path.extname(doc.fileName) !== '.bs') {
-    vscode.window.showErrorMessage('Not a Bikeshed file.');
+  if (doc.languageId !== 'bikeshed' || path.extname(doc.fileName) !== '.bs') {
+    vscode.window.showErrorMessage('Current file is not a Bikeshed (.bs) spec.');
     return;
   }
 
-  const bikeshedPath = getBikeshedPath();
-  if (!bikeshedPath) {
-    vscode.window.showErrorMessage('Bikeshed path not found or not configured.');
+  const pythonPath = getPythonPath(output);
+  if (!pythonPath) {
+    vscode.window.showErrorMessage('Python path not found or is invalid.');
     return;
   }
 
-  const filePath = doc.fileName;
-  const outputChannel = vscode.window.createOutputChannel('Bikeshed Preview');
-  outputChannel.clear();
-  outputChannel.appendLine(`🔍 Previewing: ${filePath}`);
-  outputChannel.show(true);
+  try {
+    await doc.save();
 
-  const output = await runBikeshed(bikeshedPath, filePath, outputChannel);
-  if (!output) {
-    vscode.window.showErrorMessage('❌ Bikeshed failed to generate preview.');
-    return;
+    const filePath = doc.fileName;
+    const log = output || vscode.window.createOutputChannel('Bikeshed Preview');
+    if (!output) {
+      log.clear();
+      log.show(true);
+    }
+
+    log.appendLine(`🚀 Generating preview for: ${filePath}`);
+    const htmlOutput = await runBikeshed(pythonPath, filePath, log);
+
+    if (!htmlOutput) {
+      vscode.window.showErrorMessage('Failed to generate preview. See output for details.');
+      return;
+    }
+
+    showPreviewPanel(htmlOutput, log);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    vscode.window.showErrorMessage(`Bikeshed preview failed: ${message}`);
+    output?.appendLine(`❌ Exception during preview: ${message}`);
   }
-
-  const panel = vscode.window.createWebviewPanel(
-    'bikeshedPreview',
-    'Bikeshed Preview',
-    vscode.ViewColumn.Beside,
-    { enableScripts: true }
-  );
-
-  panel.webview.html = wrapHtml(output);
 }
 
+/**
+ * Run Bikeshed CLI and return HTML output by reading a temp file.
+ */
 function runBikeshed(
-  bikeshedPath: string,
+  pythonPath: string,
   filePath: string,
-  outputChannel: vscode.OutputChannel
+  output: vscode.OutputChannel
 ): Promise<string | null> {
   return new Promise((resolve) => {
-    const proc = cp.spawn(bikeshedPath, ['spec', filePath, '-f', 'text'], { shell: true });
-
-    let output = '';
-    let error = '';
-
-    proc.stdout.on('data', (data) => {
-      output += data.toString();
+    const tmpOut = path.join(os.tmpdir(), `bikeshed-preview-${Date.now()}.html`);
+    const proc = cp.spawn(pythonPath, ['-m', 'bikeshed', 'spec', filePath, '-f', 'html', '-o', tmpOut], {
+      shell: true
     });
+
+    let stderr = '';
 
     proc.stderr.on('data', (data) => {
       const text = data.toString();
-      error += text;
-      outputChannel.appendLine(`⚠️ stderr: ${text}`);
+      stderr += text;
+      output.appendLine(`⚠️ stderr: ${text}`);
     });
 
     proc.on('close', (code) => {
       if (code === 0) {
-        resolve(output);
+        try {
+          const html = fs.readFileSync(tmpOut, 'utf8');
+          resolve(html);
+        } catch (err) {
+          output.appendLine(`❌ Failed to read temp output: ${err}`);
+          resolve(null);
+        }
       } else {
-        outputChannel.appendLine(`❌ Bikeshed exited with code ${code}`);
+        output.appendLine(`❌ Bikeshed exited with code ${code}`);
+        output.appendLine(stderr);
         resolve(null);
       }
+    });
+
+    proc.on('error', (err) => {
+      output.appendLine(`❌ Failed to run Bikeshed: ${err.message}`);
+      resolve(null);
     });
   });
 }
 
+/**
+ * Displays the HTML in a new webview panel.
+ */
+function showPreviewPanel(htmlContent: string, output: vscode.OutputChannel) {
+  try {
+    const panel = vscode.window.createWebviewPanel(
+      'bikeshedPreview',
+      'Bikeshed Preview',
+      vscode.ViewColumn.Beside,
+      { enableScripts: true }
+    );
+
+    panel.webview.html = wrapHtml(htmlContent);
+    output.appendLine('✅ Preview panel rendered successfully.');
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    vscode.window.showErrorMessage(`Failed to render preview panel: ${msg}`);
+    output.appendLine(`❌ Preview panel error: ${msg}`);
+  }
+}
+
+/**
+ * Wraps the Bikeshed-generated HTML inside a styled document.
+ */
 function wrapHtml(body: string): string {
   return `
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
       <head>
         <meta charset="utf-8">
         <style>
           body {
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: system-ui, sans-serif;
             padding: 2rem;
             line-height: 1.6;
+            background: #ffffff;
+            color: #1a1a1a;
           }
         </style>
       </head>

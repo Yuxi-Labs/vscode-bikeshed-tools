@@ -5,28 +5,25 @@
   "version": "1.0.0",
   "publisher": "yuxi-labs",
   "repository": {
-  "type": "git",
-  "url": "https://github.com/Yuxi-Labs/vscode-bikeshed-tools"
-},
-"bugs": {
-  "url": "https://github.com/Yuxi-Labs/vscode-bikeshed-tools/issues"
-},
-"homepage": "https://www.yuxilabs.com/vscode-bikeshed-tools",
-"icon": "assets/images/icons/bikeshed-tools-icon.png",
-"galleryBanner": {
-  "color": "#5e3b5b",
-  "theme": "dark"
-},
+    "type": "git",
+    "url": "https://github.com/Yuxi-Labs/vscode-bikeshed-tools"
+  },
+  "bugs": {
+    "url": "https://github.com/Yuxi-Labs/vscode-bikeshed-tools/issues"
+  },
+  "homepage": "https://www.yuxilabs.com/vscode-bikeshed-tools",
+  "icon": "assets/images/icons/bikeshed-tools-icon.png",
+  "galleryBanner": {
+    "color": "#5e3b5b",
+    "theme": "dark"
+  },
   "type": "commonjs",
   "engines": {
-    "vscode": "^1.102.0"
+    "vscode": "^1.102.0",
+    "node": ">=18.0.0"
   },
   "categories": [
-    "Programming Languages",
-    "Linters",
-    "Snippets",
-    "Formatters",
-    "Other"
+    "Programming Languages"
   ],
   "keywords": [
     "bikeshed",
@@ -45,21 +42,27 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "snippets": [
+      {
+        "language": "bikeshed",
+        "path": "./snippets/bikeshed.json"
+      }
+    ],
     "grammars": [
-    {
-      "language": "bikeshed",
-      "scopeName": "source.bikeshed",
-      "path": "./syntaxes/bikeshed.tmLanguage.json"
-    }
-  ],
+      {
+        "language": "bikeshed",
+        "scopeName": "source.bikeshed",
+        "path": "./syntaxes/bikeshed.tmLanguage.json"
+      }
+    ],
     "languages": [
-    {
-      "id": "bikeshed",
-      "aliases": ["Bikeshed", "bikeshed"],
-      "extensions": [".bs"],
-      "configuration": "./language-configuration.json"
-    }
-  ],
+      {
+        "id": "bikeshed",
+        "aliases": ["Bikeshed", "bikeshed"],
+        "extensions": [".bs"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
     "commands": [
       {
         "command": "bikeshedTools.buildSpec",
@@ -70,19 +73,35 @@
         "title": "Bikeshed: Preview Spec"
       }
     ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "bikeshedTools.previewSpec",
+          "when": "resourceExtname == .bs",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "bikeshedTools.buildSpec",
+          "when": "resourceExtname == .bs",
+          "group": "navigation"
+        }
+      ]
+    },
     "configuration": {
+      "title": "Bikeshed Tools",
       "properties": {
-        "bikeshedTools.bikeshedPath": {
+        "bikeshedTools.pythonPath": {
           "type": "string",
-          "default": "bikeshed",
-          "description": "Path to the Bikeshed CLI executable"
+          "default": "python3",
+          "description": "Path to the Python interpreter with Bikeshed installed."
         },
         "bikeshedTools.livePreview": {
-  "type": "boolean",
-  "default": false,
-  "description": "Enable live preview panel updates while editing Bikeshed documents."
-}
-
+          "type": "boolean",
+          "default": false,
+          "description": "Enable live preview panel updates while editing Bikeshed documents."
+        }
       }
     }
   },
@@ -98,7 +117,8 @@
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "format": "prettier --write ."
   },
   "devDependencies": {
     "@types/vscode": "^1.102.0",
@@ -111,6 +131,11 @@
     "npm-run-all": "^4.1.5",
     "typescript": "^5.8.3",
     "@vscode/test-cli": "^0.0.11",
-    "@vscode/test-electron": "^2.5.2"
-  }
+    "@vscode/test-electron": "^2.5.2",
+    "prettier": "^3.2.5"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "extensionKind": ["workspace"]
 }

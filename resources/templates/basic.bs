@@ -8,7 +8,7 @@ Editor: Your Name, Your Company http://example.com/your-company, your-email@exam
 Abstract: A short description of your spec, one or two sentences.
 </pre>
 
-Introduction {#intro}
+Introduction {#Introduction}
 =====================
 
-Introduction here.
+Introduction here..

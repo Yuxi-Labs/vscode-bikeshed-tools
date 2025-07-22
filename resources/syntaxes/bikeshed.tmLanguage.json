@@ -8,23 +8,23 @@
       "match": "//.*$"
     },
     {
-      "name": "meta.metadata.bikeshed",
+      "name": "meta.metadata.block.bikeshed",
       "begin": "<pre\\s+class=['\"]metadata['\"]>",
       "end": "</pre>",
       "patterns": [
         {
-          "name": "keyword.other.metadata.key.bikeshed",
-          "match": "^(\\w+):"
-        },
-        {
-          "name": "string.unquoted.metadata.value.bikeshed",
-          "match": "^\\w+:\\s*(.*)$"
+          "name": "meta.metadata.line.bikeshed",
+          "match": "^(\\w+):\\s*(.+)$",
+          "captures": {
+            "1": { "name": "keyword.other.metadata.key.bikeshed" },
+            "2": { "name": "string.unquoted.metadata.value.bikeshed" }
+          }
         }
       ]
     },
     {
       "name": "markup.heading.setext.bikeshed",
-      "match": "^(=+|\\-+)$"
+      "match": "^(=+|-+)$"
     },
     {
       "name": "entity.name.section.bikeshed",
@@ -32,16 +32,36 @@
     },
     {
       "name": "keyword.other.inline.macro.bikeshed",
-      "match": "\\[[A-Z_]+\\]"
+      "match": "\\[([A-Z_]+)(?:\\s+[^\\]]+)?\\]"
     },
     {
       "name": "markup.bold.bikeshed",
-      "match": "\\*\\*(.*?)\\*\\*"
+      "match": "(\\*\\*)([^*]+)(\\*\\*)",
+      "captures": {
+        "2": { "name": "markup.bold.bikeshed" }
+      }
     },
     {
       "name": "markup.italic.bikeshed",
-      "match": "\\*(.*?)\\*"
+      "match": "(?<!\\*)\\*([^*]+)\\*(?!\\*)",
+      "captures": {
+        "1": { "name": "markup.italic.bikeshed" }
+      }
+    },
+    {
+      "name": "markup.inline.link.bikeshed",
+      "match": "\\[\\[(.*?)\\]\\]",
+      "captures": {
+        "1": { "name": "markup.underline.link.bikeshed" }
+      }
+    },
+    {
+      "name": "markup.reference.bikeshed",
+      "match": "\\{\\{([^}]+)\\}\\}",
+      "captures": {
+        "1": { "name": "markup.italic.reference.bikeshed" }
+      }
     }
   ],
-  "uuid": "bikshed-syntax-2025"
+  "uuid": "bikeshed-syntax-2025"
 }
