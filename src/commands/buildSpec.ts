@@ -2,20 +2,19 @@ import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as path from 'path';
 import { getPythonPath } from '../utils/pythonPath';
+import { ensureBikeshedCache } from '../utils/bikeshedPath';   // CHANGED
 
 /**
  * Runs Bikeshed to build a spec file.
  */
 export async function buildSpec(output?: vscode.OutputChannel) {
   const editor = vscode.window.activeTextEditor;
-
   if (!editor) {
-    vscode.window.showErrorMessage('No active editor. Open a Bikeshed (.bs) file to build.');
+    vscode.window.showErrorMessage('Open a Bikeshed (.bs) file first.');
     return;
   }
 
   const doc = editor.document;
-
   if (doc.languageId !== 'bikeshed' || path.extname(doc.fileName) !== '.bs') {
     vscode.window.showErrorMessage('Only .bs (Bikeshed) files are supported.');
     return;
@@ -27,57 +26,55 @@ export async function buildSpec(output?: vscode.OutputChannel) {
     return;
   }
 
-  try {
-    await doc.save();
+  await doc.save();
 
-    const filePath = doc.fileName;
-    const log = output || vscode.window.createOutputChannel('Bikeshed Build');
-    if (!output) {
-      log.clear();
-      log.show(true);
-    }
-
-    log.appendLine(`🚧 Building: ${filePath}`);
-    log.appendLine(`▶ Command: ${pythonPath} -m bikeshed spec "${filePath}"`);
-
-    const result = await runBikeshedBuild(pythonPath, filePath, log);
-
-    if (result === 0) {
-      vscode.window.showInformationMessage('✅ Bikeshed spec built successfully.');
-    } else {
-      vscode.window.showErrorMessage(`❌ Bikeshed build failed (exit code ${result}).`);
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    vscode.window.showErrorMessage(`Bikeshed build failed: ${message}`);
-    output?.appendLine(`❌ Exception during build: ${message}`);
+  const filePath = doc.fileName;
+  const log = output || vscode.window.createOutputChannel('Bikeshed Build');
+  if (!output) {
+    log.clear();
+    log.show(true);
   }
-}
 
-function runBikeshedBuild(
-  pythonPath: string,
-  filePath: string,
-  output: vscode.OutputChannel
-): Promise<number> {
-  return new Promise((resolve) => {
-    const proc = cp.spawn(pythonPath, ['-m', 'bikeshed', 'spec', filePath], { shell: true });
+  async function run(): Promise<{ code: number; stderr: string }> {
+    return new Promise(resolve => {
+      const errBuf: string[] = [];
+      const proc = cp.spawn(pythonPath, ['-m', 'bikeshed', 'spec', filePath]);
 
-    proc.stdout.on('data', (data) => {
-      output.append(data.toString());
+      proc.stdout.on('data', d => log.append(d.toString()));
+      proc.stderr.on('data', d => {
+        const s = d.toString();
+        errBuf.push(s);
+        log.appendLine(`[stderr] ${s}`);
+      });
+
+      proc.on('close', c => resolve({ code: c ?? 1, stderr: errBuf.join('') }));
+      proc.on('error', err => {
+        log.appendLine(`❌ Failed to launch Bikeshed: ${err.message}`);
+        resolve({ code: 1, stderr: err.message });
+      });
     });
+  }
 
-    proc.stderr.on('data', (data) => {
-      output.appendLine(`[stderr] ${data.toString()}`);
-    });
+  log.appendLine(`🚧 Building: ${filePath}`);
+  log.appendLine(`▶ "${pythonPath}" -m bikeshed spec "${filePath}"`);
 
-    proc.on('close', (code) => {
-      output.appendLine(`📦 Process exited with code ${code}`);
-      resolve(code ?? 1);
-    });
+  let { code, stderr } = await run();
 
-    proc.on('error', (err) => {
-      output.appendLine(`❌ Failed to launch Bikeshed: ${err.message}`);
-      resolve(1);
-    });
-  });
+  // Auto‑prompt to update cache if missing
+  if (code !== 0 && /bikeshed update/i.test(stderr)) {
+    const choice = await vscode.window.showInformationMessage(
+      'Bikeshed cache is missing. Download now?',
+      'Yes',
+      'No'
+    );
+    if (choice === 'Yes' && (await ensureBikeshedCache(pythonPath, log))) {
+      ({ code } = await run()); // retry once
+    }
+  }
+
+  if (code === 0) {
+    vscode.window.showInformationMessage('✅ Bikeshed spec built successfully.');
+  } else {
+    vscode.window.showErrorMessage(`❌ Bikeshed build failed (exit code ${code}).`);
+  }
 }

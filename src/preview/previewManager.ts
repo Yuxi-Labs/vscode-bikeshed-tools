@@ -23,13 +23,13 @@ export function initLivePreview(context: vscode.ExtensionContext, output?: vscod
   output?.appendLine('Live preview enabled.');
 
   context.subscriptions.push(
-    vscode.workspace.onDidChangeTextDocument((event) => {
+    vscode.workspace.onDidChangeTextDocument(event => {
       const doc = event.document;
       if (!isBikeshedFile(doc)) return;
       clearTimeout(updateTimer);
       updateTimer = setTimeout(() => updatePreview(doc, context, output), 400);
     }),
-    vscode.workspace.onDidSaveTextDocument((doc) => {
+    vscode.workspace.onDidSaveTextDocument(doc => {
       if (!isBikeshedFile(doc)) return;
       updatePreview(doc, context, output);
     })
@@ -47,7 +47,11 @@ function isBikeshedFile(doc: vscode.TextDocument): boolean {
   return doc.languageId === 'bikeshed' || path.extname(doc.fileName) === '.bs';
 }
 
-async function updatePreview(doc: vscode.TextDocument, context: vscode.ExtensionContext, output?: vscode.OutputChannel) {
+async function updatePreview(
+  doc: vscode.TextDocument,
+  context: vscode.ExtensionContext,
+  output?: vscode.OutputChannel
+) {
   const pythonPath = getPythonPath(output);
   if (!pythonPath) {
     output?.appendLine('⚠️ No Python path found. Skipping preview.');
@@ -65,7 +69,15 @@ async function updatePreview(doc: vscode.TextDocument, context: vscode.Extension
     }
 
     const html = fs.readFileSync(tmpOut, 'utf8');
-    const cssPath = path.join(context.extensionPath, 'assets', 'styles', 'preview.css');
+    fs.unlink(tmpOut, () => {}); // cleanup temp file (ignore errors)
+
+    const cssPath = path.join(
+      context.extensionPath,
+      'resources',
+      'assets',
+      'styles',
+      'preview.css'
+    );
     const css = fs.existsSync(cssPath) ? fs.readFileSync(cssPath, 'utf8') : '';
 
     if (!previewPanel) {
@@ -90,17 +102,26 @@ async function updatePreview(doc: vscode.TextDocument, context: vscode.Extension
   }
 }
 
-function runBikeshed(pythonPath: string, filePath: string, outFile: string, output?: vscode.OutputChannel): Promise<boolean> {
-  return new Promise((resolve) => {
-    const proc = cp.spawn(pythonPath, ['-m', 'bikeshed', 'spec', filePath, '-f', 'html', '-o', outFile], { shell: true });
+function runBikeshed(
+  pythonPath: string,
+  filePath: string,
+  outFile: string,
+  output?: vscode.OutputChannel
+): Promise<boolean> {
+  return new Promise(resolve => {
+    const proc = cp.spawn(
+      pythonPath,
+      ['-m', 'bikeshed', 'spec', filePath, '-f', 'html', '-o', outFile],
+      { shell: true }
+    );
 
     let stderr = '';
 
-    proc.stderr.on('data', (data) => {
+    proc.stderr.on('data', data => {
       stderr += data.toString();
     });
 
-    proc.on('close', (code) => {
+    proc.on('close', code => {
       if (code === 0) {
         resolve(true);
       } else {
@@ -109,7 +130,7 @@ function runBikeshed(pythonPath: string, filePath: string, outFile: string, outp
       }
     });
 
-    proc.on('error', (err) => {
+    proc.on('error', err => {
       output?.appendLine(`[Process error] ${err.message}`);
       resolve(false);
     });

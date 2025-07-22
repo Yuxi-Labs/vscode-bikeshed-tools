@@ -5,14 +5,14 @@ import * as fs from 'fs';
 let internalOutput: vscode.OutputChannel | undefined;
 
 /**
- * Resolves the path to the Python executable to run Bikeshed as a module.
- * Prioritizes user-defined setting in `bikeshedTools.pythonPath`, defaults to "python".
- * Logs everything to a shared output channel for sanity.
- * 
- * @param output Optional output channel for logging
- * @returns A valid Python executable path
+ * Resolve the Python executable for running Bikeshed.
+ * 1. Honor the `bikeshedTools.pythonPath` setting (default "python3").
+ * 2. If the value is a bare command (no slashes/back‑slashes), return it unchanged.
+ * 3. If it looks like a path, expand ~ and validate that the file exists & is executable.
+ * 4. Fall back to "python".
  */
 export function getPythonPath(output?: vscode.OutputChannel): string {
+  // Ensure we always have an output channel
   if (!output) {
     if (!internalOutput) {
       internalOutput = vscode.window.createOutputChannel('Bikeshed Tools (Python)');
@@ -22,34 +22,45 @@ export function getPythonPath(output?: vscode.OutputChannel): string {
   }
 
   const config = vscode.workspace.getConfiguration('bikeshedTools');
-  let userPath = config.get<string>('pythonPath')?.trim() || 'python';
+  let userPath = (config.get<string>('pythonPath') || 'python3').trim();
 
   output.appendLine(`🐍 Config setting 'pythonPath': ${userPath}`);
 
-  // Strip accidental quotes (it happens more than you'd think)
+  // Strip accidental quotes
   userPath = userPath.replace(/^"(.*)"$/, '$1');
   output.appendLine(`🔧 Cleaned Python path: ${userPath}`);
 
+  // Expand a leading ~
   const homeDir = process.env.HOME || process.env.USERPROFILE || '';
-  const expanded = userPath.startsWith('~')
+  let expanded = userPath.startsWith('~')
     ? path.join(homeDir, userPath.slice(1))
     : userPath;
 
-  const resolved = path.resolve(expanded);
-  output.appendLine(`📌 Resolved Python path: ${resolved}`);
-
-  // Check if file exists
-  if (!fs.existsSync(resolved)) {
-    output.appendLine(`❌ Python executable not found at: ${resolved}`);
-    return 'python'; // fallback to default
+  // ────────────────────────────────────────────────────────────────────────────────
+  // 1) Bare command (no path separators) → trust the shell to find it
+  // ────────────────────────────────────────────────────────────────────────────────
+  const hasSeparator = expanded.includes('/') || expanded.includes('\\');
+  if (!hasSeparator && !path.isAbsolute(expanded)) {
+    output.appendLine(`🔎 Treating '${expanded}' as command on PATH.`);
+    return expanded;
   }
 
-  // Check exec permissions on non-Windows
+  // ────────────────────────────────────────────────────────────────────────────────
+  // 2) Looks like a real path → validate
+  // ────────────────────────────────────────────────────────────────────────────────
+  const resolved = path.normalize(expanded);
+  output.appendLine(`📌 Checking absolute path: ${resolved}`);
+
+  if (!fs.existsSync(resolved)) {
+    output.appendLine(`❌ Python executable not found at: ${resolved}`);
+    return 'python'; // graceful fallback
+  }
+
   if (process.platform !== 'win32') {
     try {
       fs.accessSync(resolved, fs.constants.X_OK);
     } catch {
-      output.appendLine(`🚫 Python found at ${resolved} but is not executable.`);
+      output.appendLine(`🚫 Found ${resolved} but it is not executable.`);
       return 'python';
     }
   }

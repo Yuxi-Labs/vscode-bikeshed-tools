@@ -25,14 +25,14 @@
     {
       "beforeText": "^\\s*(\\*|//).*$",
       "action": {
-        "indentAction": "none",
+        "indentAction": "None",
         "appendText": "// "
       }
     },
     {
       "beforeText": "^\\s*\\[\\[note\\]\\]:",
       "action": {
-        "indentAction": "indent"
+        "indentAction": "Indent"
       }
     }
   ],

@@ -45,14 +45,14 @@
     "snippets": [
       {
         "language": "bikeshed",
-        "path": "./snippets/bikeshed.json"
+        "path": "./resources/snippets/bikeshed.json"
       }
     ],
     "grammars": [
       {
         "language": "bikeshed",
         "scopeName": "source.bikeshed",
-        "path": "./syntaxes/bikeshed.tmLanguage.json"
+        "path": "./resources/syntaxes/bikeshed.tmLanguage.json"
       }
     ],
     "languages": [

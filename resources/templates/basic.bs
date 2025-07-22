@@ -11,4 +11,4 @@ Abstract: A short description of your spec, one or two sentences.
 Introduction {#Introduction}
 =====================
 
-Introduction here..
+Introduction here.
