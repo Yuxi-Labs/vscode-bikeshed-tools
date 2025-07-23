@@ -1,4 +1,4 @@
-MIT License
+Yuxi Labs License
 Copyright (c) 2025 Yuxi Labs
 
 Permission is hereby granted, free of charge, to use, reproduce, and modify this software
