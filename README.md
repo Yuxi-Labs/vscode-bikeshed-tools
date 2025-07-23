@@ -18,9 +18,6 @@
 
   <!-- Contributors -->
   <img src="https://img.shields.io/github/contributors/Yuxi-Labs/vscode-bikeshed-tools" alt="Contributors" />
-
-  <!-- License -->
-  <img src="https://img.shields.io/github/license/Yuxi-Labs/vscode-bikeshed-tools" alt="License" />
 </p>
 
 
