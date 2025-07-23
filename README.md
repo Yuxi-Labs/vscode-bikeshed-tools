@@ -21,7 +21,6 @@
 
   <!-- Version -->
   <img src="https://img.shields.io/github/package-json/v/Yuxi-Labs/vscode-bikeshed-tools" alt="Version" />
-  
 </p>
 
 
