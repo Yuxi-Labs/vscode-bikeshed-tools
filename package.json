@@ -131,9 +131,11 @@
     "format": "prettier --write ."
   },
   "devDependencies": {
+    "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
     "@types/vscode": "^1.90.0",
+    "@types/which": "^3.0.4",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
     "@vscode/test-cli": "^0.0.11",
@@ -152,5 +154,9 @@
   },
   "extensionKind": [
     "workspace"
-  ]
+  ],
+  "dependencies": {
+    "glob": "^11.0.3",
+    "which": "^5.0.0"
+  }
 }
