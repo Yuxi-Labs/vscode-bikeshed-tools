@@ -30,11 +30,11 @@
       }
     },
     {
-      "beforeText": "^\\s*\\[\\[note\\]\\]:",
+      "beforeText": "^\\s*\\[\\[note\\]\\]$:",
       "action": {
         "indentAction": "Indent"
       }
     }
   ],
-  "wordPattern": "[^\\s{}()[\\]\"']+"
+  "wordPattern": "(?:[#@]?[A-Za-z0-9_-]+)"
 }

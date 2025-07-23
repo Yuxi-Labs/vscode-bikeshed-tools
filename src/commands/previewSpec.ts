@@ -2,11 +2,84 @@ import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as path from 'path';
 import { getPythonPath } from '../utils/pythonPath';
-import { ensureBikeshedCache } from '../utils/bikeshedPath';
+import { getBikeshedPath, ensureBikeshedCache } from '../utils/bikeshedPath';
 
-/**
- * Preview the current Bikeshed spec as HTML in a side panel.
- */
+/* ──────────────────────────────────────────────────────────────────────────── */
+/*  A single long‑lived Bikeshed process                                      */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
+let bsProc: cp.ChildProcessWithoutNullStreams | undefined;
+let lastStalePrompt = 0;
+const DAY = 86_400_000;
+
+async function runBikeshed(
+  python: string,
+  bikeshedCli: string | undefined,
+  htmlOutput: (html: string) => void,
+  log: vscode.OutputChannel,
+  docText: string
+): Promise<void> {
+  // Cancel any previous run still working
+  bsProc?.kill('SIGTERM');
+
+  // Build argv: prefer explicit bikeshed CLI if user set one, otherwise -m
+  const argv = bikeshedCli
+    ? [bikeshedCli, 'spec', '-', '-o', '-']
+    : ['-m', 'bikeshed', 'spec', '-', '-o', '-'];
+
+  const proc = cp.spawn(python, argv, {
+    stdio: ['pipe', 'pipe', 'pipe']
+  }) as cp.ChildProcessWithoutNullStreams;
+
+  bsProc = proc;
+
+  /* Stream current buffer via stdin */
+  bsProc.stdin.end(docText);
+
+  const outBuf: string[] = [];
+  const errBuf: string[] = [];
+
+  bsProc.stdout.on('data', d => outBuf.push(d.toString()));
+  bsProc.stderr.on('data', d => errBuf.push(d.toString()));
+
+  return new Promise(resolve => {
+    bsProc!.on('close', async code => {
+      const html = outBuf.join('');
+      const stderr = errBuf.join('');
+
+      // Detect stale cache warnings (only once a day)
+      if (/cache\s+is\s+\d+\s+days\s+old/i.test(stderr)) {
+        const now = Date.now();
+        if (now - lastStalePrompt > DAY) {
+          lastStalePrompt = now;
+          const choice = await vscode.window.showInformationMessage(
+            'Bikeshed cache is stale. Update now?',
+            'Yes',
+            'No'
+          );
+          if (choice === 'Yes') {
+            const ok = await ensureBikeshedCache(python, log);
+            if (ok) return runBikeshed(python, bikeshedCli, htmlOutput, log, docText);
+          }
+        }
+      }
+
+      if (code === 0 && html) {
+        htmlOutput(html);
+      } else {
+        log.appendLine(`❌ Preview failed (exit code ${code}).`);
+        log.appendLine(stderr);
+        vscode.window.showErrorMessage('Failed to generate Bikeshed preview – see output');
+      }
+      resolve();
+    });
+  });
+}
+
+/* ──────────────────────────────────────────────────────────────────────────── */
+/*  Command entry‑point                                                        */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
 export async function previewSpec(output?: vscode.OutputChannel) {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
@@ -26,63 +99,14 @@ export async function previewSpec(output?: vscode.OutputChannel) {
     return;
   }
 
+  const bikeshedCli = getBikeshedPath(output);
+
   await doc.save();
 
-  const filePath = doc.fileName;
   const log = output || vscode.window.createOutputChannel('Bikeshed Preview');
   if (!output) {
     log.clear();
     log.show(true);
-  }
-
-  async function run(): Promise<{ html: string | null; stderr: string; code: number }> {
-    return new Promise(resolve => {
-      const outBuf: string[] = [];
-      const errBuf: string[] = [];
-
-      const proc = cp.spawn(pythonPath, [
-  '-m',
-  'bikeshed',
-  'spec',
-  filePath,
-  '-o',
-  '-'           // stream finished HTML to stdout
-]);
-
-      proc.stdout.on('data', d => outBuf.push(d.toString()));
-      proc.stderr.on('data', d => {
-        const s = d.toString();
-        errBuf.push(s);
-        log.appendLine(`⚠️ stderr: ${s}`);
-      });
-
-      proc.on('close', c =>
-        resolve({ html: outBuf.join(''), stderr: errBuf.join(''), code: c ?? 1 })
-      );
-
-      proc.on('error', err => resolve({ html: null, stderr: err.message, code: 1 }));
-    });
-  }
-
-  log.appendLine(`🚀 Generating preview for: ${filePath}`);
-
-  let { html, stderr, code } = await run();
-
-  // Offer cache download if missing
-  if (!html && code !== 0 && /bikeshed update/i.test(stderr)) {
-    const choice = await vscode.window.showInformationMessage(
-      'Bikeshed cache is missing. Download now?',
-      'Yes',
-      'No'
-    );
-    if (choice === 'Yes' && (await ensureBikeshedCache(pythonPath, log))) {
-      ({ html } = await run()); // retry once
-    }
-  }
-
-  if (!html) {
-    vscode.window.showErrorMessage('Failed to generate preview (see “Bikeshed Preview” output).');
-    return;
   }
 
   const panel = vscode.window.createWebviewPanel(
@@ -92,19 +116,16 @@ export async function previewSpec(output?: vscode.OutputChannel) {
     { enableScripts: true }
   );
 
-  panel.webview.html = /<\s*html[\s>]/i.test(html) ? html : wrapHtml(html);
-  log.appendLine('✅ Preview panel rendered successfully.');
+  function render(html: string) {
+    panel.webview.html = /<\s*html[\s>]/i.test(html) ? html : wrapHtml(html);
+    log.appendLine('✅ Preview panel rendered successfully.');
+  }
+
+  log.appendLine(`🚀 Generating preview for: ${doc.fileName}`);
+
+  await runBikeshed(pythonPath, bikeshedCli, render, log, doc.getText());
 }
 
 function wrapHtml(body: string): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<style>
-body{font-family:system-ui,sans-serif;padding:2rem;line-height:1.6;background:#fff;color:#1a1a1a;}
-</style>
-</head>
-<body>${body}</body>
-</html>`;
+  return `<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<style>body{font-family:system-ui,sans-serif;padding:2rem;line-height:1.6;background:#fff;color:#1a1a1a;}</style>\n</head>\n<body>${body}</body>\n</html>`;
 }

@@ -1,19 +1,19 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as cp from 'child_process';                // NEW
+import * as cp from 'child_process';
 
 let internalOutput: vscode.OutputChannel | undefined;
 
 /**
  * Resolve the Bikeshed CLI location.
  * – Honors `bikeshedTools.bikeshedPath` (default "bikeshed").
- * – If the value is a bare command, return it verbatim (let the shell find it).
- * – If it looks like a path, expand ~, validate existence & exec bit.
- * – Return undefined on failure so callers can decide what to do.
+ * – Returns the bare command when the value is just a filename (no dir)
+ *   regardless of path‑separator characters in Windows.
+ * – Otherwise expands ~, normalises and validates the path.
+ * – Returns undefined on failure so callers can decide what to do.
  */
 export function getBikeshedPath(output?: vscode.OutputChannel): string | undefined {
-  // Ensure an output channel
   if (!output) {
     if (!internalOutput) {
       internalOutput = vscode.window.createOutputChannel('Bikeshed Tools (Auto)');
@@ -22,35 +22,31 @@ export function getBikeshedPath(output?: vscode.OutputChannel): string | undefin
     output.show(true);
   }
 
-  const config = vscode.workspace.getConfiguration('bikeshedTools');
-  let userPath = (config.get<string>('bikeshedPath') || 'bikeshed').trim();
+  const cfg = vscode.workspace.getConfiguration('bikeshedTools');
+  let userPath = (cfg.get<string>('bikeshedPath') || 'bikeshed').trim();
 
   output.appendLine(`🔍 Config setting 'bikeshedPath': ${userPath}`);
 
   // Strip accidental quotes
   userPath = userPath.replace(/^"(.*)"$/, '$1');
-  output.appendLine(`🔧 Cleaned path: ${userPath}`);
 
   // Expand ~
-  const homeDir = process.env.HOME || process.env.USERPROFILE || '';
-  const expanded = userPath.startsWith('~')
-    ? path.join(homeDir, userPath.slice(1))
-    : userPath;
+  const home = process.env.HOME || process.env.USERPROFILE || '';
+  const expanded = userPath.startsWith('~') ? path.join(home, userPath.slice(1)) : userPath;
 
-  // ────────────────────────────────────────────────────────────────────────────────
-  // 1) Bare command (no separators, not absolute) → delegate to PATH
-  // ────────────────────────────────────────────────────────────────────────────────
-  const hasSeparator = expanded.includes('/') || expanded.includes('\\');
-  if (!path.isAbsolute(expanded) && !hasSeparator) {
+  /* ────────────────────────────────────────────────────────────────────────── */
+  /*  Bare command → no directory component & not absolute                    */
+  /* ────────────────────────────────────────────────────────────────────────── */
+  if (!path.isAbsolute(expanded) && expanded === path.basename(expanded)) {
     output.appendLine(`📦 Treating '${expanded}' as command on PATH.`);
     return expanded;
   }
 
-  // ────────────────────────────────────────────────────────────────────────────────
-  // 2) Looks like a real path → validate
-  // ────────────────────────────────────────────────────────────────────────────────
+  /* ────────────────────────────────────────────────────────────────────────── */
+  /*  Treat as explicit path                                                  */
+  /* ────────────────────────────────────────────────────────────────────────── */
   const resolved = path.normalize(expanded);
-  output.appendLine(`📌 Resolved absolute path: ${resolved}`);
+  output.appendLine(`📌 Resolved path: ${resolved}`);
 
   if (!fs.existsSync(resolved)) {
     output.appendLine(`❌ Bikeshed CLI not found at: ${resolved}`);
@@ -70,10 +66,9 @@ export function getBikeshedPath(output?: vscode.OutputChannel): string | undefin
   return resolved;
 }
 
-/* ────────────────────────────────────────────────────────────────────────────── */
-/*  Helper to download / refresh the Bikeshed cache on demand                    */
-/* ────────────────────────────────────────────────────────────────────────────── */
-
+/* ──────────────────────────────────────────────────────────────────────────── */
+/*  Helper to download / refresh the Bikeshed cache on demand                 */
+/* ──────────────────────────────────────────────────────────────────────────── */
 export async function ensureBikeshedCache(
   pythonPath: string,
   output: vscode.OutputChannel

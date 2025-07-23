@@ -10,6 +10,6 @@
   "typescript.tsc.autoDetect": "off",
 
   // Bikeshed Tools configuration
-  "bikeshedTools.pythonPath": "/home/wsawyerr/.venv/bin/python",
-  "bikeshedTools.bikeshedPath": "/home/wsawyerr/.venv/bin/bikeshed"
+  //"bikeshedTools.pythonPath": "/home/wsawyerr/.venv/bin/python",
+  //"bikeshedTools.bikeshedPath": "/home/wsawyerr/.venv/bin/bikeshed"
 }

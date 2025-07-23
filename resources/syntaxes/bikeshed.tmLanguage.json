@@ -2,11 +2,18 @@
   "name": "Bikeshed",
   "scopeName": "source.bikeshed",
   "fileTypes": ["bs"],
+  "uuid": "bikeshed-syntax-2025",
   "patterns": [
     {
-      "name": "comment.line.double-slash.bikeshed",
-      "match": "//.*$"
+      "name": "markup.block.metadata.tag.bikeshed",
+      "begin": "(?i)<pre\\s+class=(['\"])(?:metadata)\\1>",
+      "end": "(?i)</pre>",
+      "beginCaptures": { "0": { "name": "entity.name.tag.bikeshed" } },
+      "endCaptures":   { "0": { "name": "entity.name.tag.bikeshed" } }
     },
+
+    { "name": "comment.line.double-slash.bikeshed", "match": "//.*$" },
+
     {
       "name": "meta.metadata.block.bikeshed",
       "begin": "<pre\\s+class=['\"]metadata['\"]>",
@@ -22,46 +29,39 @@
         }
       ]
     },
-    {
-      "name": "markup.heading.setext.bikeshed",
-      "match": "^(=+|-+)$"
-    },
-    {
-      "name": "entity.name.section.bikeshed",
-      "match": "^([A-Za-z0-9\\s]+)\\s+\\{#[-_a-zA-Z0-9]+\\}$"
-    },
-    {
-      "name": "keyword.other.inline.macro.bikeshed",
-      "match": "\\[([A-Z_]+)(?:\\s+[^\\]]+)?\\]"
-    },
+
+    { "name": "markup.heading.setext.bikeshed", "match": "^(=+|-+)$" },
+    { "name": "entity.name.section.bikeshed", "match": "^([A-Za-z0-9\\s]+)\\s+\\{#[-_a-zA-Z0-9]+\\}$" },
+
+    { "name": "keyword.other.inline.macro.bikeshed", "match": "\\[([A-Z_]+)(?:\\s+[^\\]]+)?\\]" },
+
     {
       "name": "markup.bold.bikeshed",
-      "match": "(\\*\\*)([^*]+)(\\*\\*)",
-      "captures": {
-        "2": { "name": "markup.bold.bikeshed" }
-      }
+      "begin": "(?<!\\\\)\\*\\*",
+      "end": "\\*\\*(?!\\*)",
+      "beginCaptures": { "0": { "name": "punctuation.definition.bold.begin.bikeshed" } },
+      "endCaptures":   { "0": { "name": "punctuation.definition.bold.end.bikeshed" } },
+      "patterns": [ { "match": "\\\\.", "name": "constant.character.escape.bikeshed" } ]
     },
+
     {
       "name": "markup.italic.bikeshed",
-      "match": "(?<!\\*)\\*([^*]+)\\*(?!\\*)",
-      "captures": {
-        "1": { "name": "markup.italic.bikeshed" }
-      }
+      "begin": "(?<![\\\\*])\\*",
+      "end": "\\*(?!\\*)",
+      "beginCaptures": { "0": { "name": "punctuation.definition.italic.begin.bikeshed" } },
+      "endCaptures":   { "0": { "name": "punctuation.definition.italic.end.bikeshed" } },
+      "patterns": [ { "match": "\\\\.", "name": "constant.character.escape.bikeshed" } ]
     },
+
     {
       "name": "markup.inline.link.bikeshed",
-      "match": "\\[\\[(.*?)\\]\\]",
-      "captures": {
-        "1": { "name": "markup.underline.link.bikeshed" }
-      }
+      "match": "\\\\[\\\\[(.*?)\\\\]\\\\]",
+      "captures": { "1": { "name": "markup.underline.link.bikeshed" } }
     },
     {
       "name": "markup.reference.bikeshed",
-      "match": "\\{\\{([^}]+)\\}\\}",
-      "captures": {
-        "1": { "name": "markup.italic.reference.bikeshed" }
-      }
+      "match": "\\\\{\\\\{([^}]+)\\\\}\\\\}",
+      "captures": { "1": { "name": "markup.italic.reference.bikeshed" } }
     }
-  ],
-  "uuid": "bikeshed-syntax-2025"
+  ]
 }

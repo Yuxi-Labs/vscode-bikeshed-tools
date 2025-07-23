@@ -2,8 +2,9 @@
   "name": "vscode-bikeshed-tools",
   "displayName": "Bikeshed Tools",
   "description": "An extension that adds support for developing Bikeshed specs in Visual Studio Code",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "publisher": "yuxi-labs",
+  "enableProposedApi": false,
   "repository": {
     "type": "git",
     "url": "https://github.com/Yuxi-Labs/vscode-bikeshed-tools"
@@ -17,9 +18,8 @@
     "color": "#5e3b5b",
     "theme": "dark"
   },
-  "type": "commonjs",
   "engines": {
-    "vscode": "^1.102.0",
+    "vscode": "^1.90.0",
     "node": ">=18.0.0"
   },
   "categories": [
@@ -52,14 +52,24 @@
       {
         "language": "bikeshed",
         "scopeName": "source.bikeshed",
-        "path": "./resources/syntaxes/bikeshed.tmLanguage.json"
+        "path": "./resources/syntaxes/bikeshed.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.idl": "webidl",
+          "meta.embedded.block.cddl": "cddl",
+          "meta.embedded.block.css": "css"
+        }
       }
     ],
     "languages": [
       {
         "id": "bikeshed",
-        "aliases": ["Bikeshed", "bikeshed"],
-        "extensions": [".bs"],
+        "aliases": [
+          "Bikeshed",
+          "bikeshed"
+        ],
+        "extensions": [
+          ".bs"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -99,7 +109,7 @@
         },
         "bikeshedTools.livePreview": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "Enable live preview panel updates while editing Bikeshed documents."
         }
       }
@@ -121,21 +131,25 @@
     "format": "prettier --write ."
   },
   "devDependencies": {
-    "@types/vscode": "^1.102.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
+    "@types/vscode": "^1.90.0",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
-    "eslint": "^9.25.1",
-    "esbuild": "^0.25.3",
-    "npm-run-all": "^4.1.5",
-    "typescript": "^5.8.3",
     "@vscode/test-cli": "^0.0.11",
     "@vscode/test-electron": "^2.5.2",
-    "prettier": "^3.2.5"
+    "esbuild": "^0.25.3",
+    "eslint": "^9.25.1",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^3.2.5",
+    "typescript": "^5.8.3",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },
-  "extensionKind": ["workspace"]
+  "extensionKind": [
+    "workspace"
+  ]
 }

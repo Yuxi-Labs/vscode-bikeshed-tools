@@ -17,7 +17,6 @@
     ],
     "description": "Creates a full metadata block with all common fields"
   },
-
   "Section Header": {
     "prefix": "section",
     "body": [
@@ -28,7 +27,6 @@
     ],
     "description": "Adds a section heading with an anchor ID"
   },
-
   "Inline Link": {
     "prefix": "link",
     "body": [
@@ -36,7 +34,6 @@
     ],
     "description": "Creates an inline Bikeshed link"
   },
-
   "Inline Reference": {
     "prefix": "ref",
     "body": [
@@ -44,7 +41,6 @@
     ],
     "description": "Creates a bibliographic reference"
   },
-
   "Macro: Inline": {
     "prefix": "macro",
     "body": [

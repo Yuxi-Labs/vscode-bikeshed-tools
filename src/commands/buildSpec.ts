@@ -2,7 +2,14 @@ import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as path from 'path';
 import { getPythonPath } from '../utils/pythonPath';
-import { ensureBikeshedCache } from '../utils/bikeshedPath';   // CHANGED
+import { getBikeshedPath, ensureBikeshedCache } from '../utils/bikeshedPath';
+
+/**
+ * Remember when we last nagged about a stale Bikeshed cache ― to avoid spamming
+ * users every build.  Epoch ms; zero means never.
+ */
+let lastCachePrompt = 0;
+const ONE_DAY = 24 * 60 * 60 * 1000;
 
 /**
  * Runs Bikeshed to build a spec file.
@@ -20,7 +27,10 @@ export async function buildSpec(output?: vscode.OutputChannel) {
     return;
   }
 
-  const pythonPath = getPythonPath(output);
+  // Resolve tooling
+  const pythonPath = getPythonPath(output); // always needed for cache ops.
+  const bikeshedCmd = getBikeshedPath(output); // may be undefined → fall back to python -m
+
   if (!pythonPath) {
     vscode.window.showErrorMessage('Python path not found or not configured.');
     return;
@@ -35,32 +45,49 @@ export async function buildSpec(output?: vscode.OutputChannel) {
     log.show(true);
   }
 
-  async function run(): Promise<{ code: number; stderr: string }> {
+  /** Spawn Bikeshed and collect stdout / stderr. */
+  async function run(): Promise<{ code: number; stdout: string; stderr: string }> {
     return new Promise(resolve => {
+      const outBuf: string[] = [];
       const errBuf: string[] = [];
-      const proc = cp.spawn(pythonPath, ['-m', 'bikeshed', 'spec', filePath]);
 
-      proc.stdout.on('data', d => log.append(d.toString()));
+      const usePython = !bikeshedCmd; // no custom CLI → use python -m
+      const cmd = usePython ? pythonPath : bikeshedCmd!;
+      const args = usePython ? ['-m', 'bikeshed', 'spec', filePath] : ['spec', filePath];
+
+      const proc = cp.spawn(cmd, args);
+
+      proc.stdout.on('data', d => {
+        const s = d.toString();
+        outBuf.push(s);
+        log.append(s);
+      });
       proc.stderr.on('data', d => {
         const s = d.toString();
         errBuf.push(s);
         log.appendLine(`[stderr] ${s}`);
       });
 
-      proc.on('close', c => resolve({ code: c ?? 1, stderr: errBuf.join('') }));
+      proc.on('close', c =>
+        resolve({ code: c ?? 1, stdout: outBuf.join(''), stderr: errBuf.join('') })
+      );
       proc.on('error', err => {
         log.appendLine(`❌ Failed to launch Bikeshed: ${err.message}`);
-        resolve({ code: 1, stderr: err.message });
+        resolve({ code: 1, stdout: '', stderr: err.message });
       });
     });
   }
 
   log.appendLine(`🚧 Building: ${filePath}`);
-  log.appendLine(`▶ "${pythonPath}" -m bikeshed spec "${filePath}"`);
+  if (bikeshedCmd) {
+    log.appendLine(`▶ "${bikeshedCmd}" spec "${filePath}"`);
+  } else {
+    log.appendLine(`▶ "${pythonPath}" -m bikeshed spec "${filePath}"`);
+  }
 
-  let { code, stderr } = await run();
+  let { code, stdout, stderr } = await run();
 
-  // Auto‑prompt to update cache if missing
+  // Auto‑prompt to update cache if Bikeshed failed to find one
   if (code !== 0 && /bikeshed update/i.test(stderr)) {
     const choice = await vscode.window.showInformationMessage(
       'Bikeshed cache is missing. Download now?',
@@ -68,13 +95,29 @@ export async function buildSpec(output?: vscode.OutputChannel) {
       'No'
     );
     if (choice === 'Yes' && (await ensureBikeshedCache(pythonPath, log))) {
-      ({ code } = await run()); // retry once
+      ({ code, stdout, stderr } = await run()); // retry once
     }
   }
 
+  // ‑‑‑ Success path — but maybe the cache is stale.
   if (code === 0) {
+    const cacheWarning = /cache\s+is\s+\d+\s+days\s+stale/i.test(stdout);
+    if (cacheWarning && Date.now() - lastCachePrompt > ONE_DAY) {
+      lastCachePrompt = Date.now();
+      const choice = await vscode.window.showInformationMessage(
+        'Bikeshed cache looks stale. Update now?',
+        'Yes',
+        'Ignore for a day'
+      );
+      if (choice === 'Yes') {
+        await ensureBikeshedCache(pythonPath, log);
+      }
+    }
+
     vscode.window.showInformationMessage('✅ Bikeshed spec built successfully.');
-  } else {
-    vscode.window.showErrorMessage(`❌ Bikeshed build failed (exit code ${code}).`);
+    return;
   }
+
+  // Failure after retries
+  vscode.window.showErrorMessage(`❌ Bikeshed build failed (exit code ${code}).`);
 }

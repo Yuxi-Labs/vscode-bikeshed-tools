@@ -1,151 +1,158 @@
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as path from 'path';
-import * as fs from 'fs';
-import * as os from 'os';
 import { getPythonPath } from '../utils/pythonPath';
+import { getBikeshedPath, ensureBikeshedCache } from '../utils/bikeshedPath';
+
+/* ──────────────────────────────────────────────────────────────────────────── */
+/*  Globals                                                                    */
+/* ──────────────────────────────────────────────────────────────────────────── */
 
 let previewPanel: vscode.WebviewPanel | undefined;
-let updateTimer: NodeJS.Timeout | undefined;
+let bsProc: cp.ChildProcessWithoutNullStreams | undefined;
+let debounceTimer: NodeJS.Timeout | undefined;
 
-/**
- * Initializes live preview events for Bikeshed documents.
- */
-export function initLivePreview(context: vscode.ExtensionContext, output?: vscode.OutputChannel) {
-  const config = vscode.workspace.getConfiguration('bikeshedTools');
-  const liveEnabled = config.get<boolean>('livePreview', false);
+let lastStalePrompt = 0;
+const DAY = 86_400_000;
 
-  if (!liveEnabled) {
-    output?.appendLine('Live preview disabled in settings.');
-    return;
-  }
+/* ──────────────────────────────────────────────────────────────────────────── */
+/*  Entry                                                                      */
+/* ──────────────────────────────────────────────────────────────────────────── */
 
+export function initLivePreview(
+  context: vscode.ExtensionContext,
+  output?: vscode.OutputChannel
+) {
   output?.appendLine('Live preview enabled.');
 
   context.subscriptions.push(
-    vscode.workspace.onDidChangeTextDocument(event => {
-      const doc = event.document;
+    vscode.workspace.onDidChangeTextDocument(e => {
+      const doc = e.document;
       if (!isBikeshedFile(doc)) return;
-      clearTimeout(updateTimer);
-      updateTimer = setTimeout(() => updatePreview(doc, context, output), 400);
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => updatePreview(doc, context, output), 500);
     }),
-    vscode.workspace.onDidSaveTextDocument(doc => {
-      if (!isBikeshedFile(doc)) return;
-      updatePreview(doc, context, output);
+    vscode.workspace.onDidOpenTextDocument(doc => {
+      if (isBikeshedFile(doc)) updatePreview(doc, context, output);
+    }),
+    vscode.workspace.onDidRenameFiles(ev => {
+      if (!previewPanel) return;
+      const match = ev.files.find(f => f.oldUri.toString() === previewPanel!.title);
+      if (match) {
+        previewPanel.title = `📘 Preview: ${path.basename(match.newUri.fsPath)}`;
+      }
     })
   );
 }
 
 export function disposeLivePreview() {
-  if (previewPanel) {
-    previewPanel.dispose();
-    previewPanel = undefined;
-  }
+  bsProc?.kill();
+  previewPanel?.dispose();
+  previewPanel = undefined;
 }
 
 function isBikeshedFile(doc: vscode.TextDocument): boolean {
   return doc.languageId === 'bikeshed' || path.extname(doc.fileName) === '.bs';
 }
 
+/* ──────────────────────────────────────────────────────────────────────────── */
+/*  Compilation + Rendering                                                    */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
 async function updatePreview(
   doc: vscode.TextDocument,
   context: vscode.ExtensionContext,
   output?: vscode.OutputChannel
 ) {
-  const pythonPath = getPythonPath(output);
-  if (!pythonPath) {
-    output?.appendLine('⚠️ No Python path found. Skipping preview.');
-    return;
+  const python = getPythonPath(output);
+  if (!python) return;
+  const bikeshedCli = getBikeshedPath(output);
+
+  const log = output || vscode.window.createOutputChannel('Bikeshed Live Preview');
+  if (!output) {
+    log.clear();
+    log.show(true);
   }
 
-  try {
-    await doc.save();
-    const tmpOut = path.join(os.tmpdir(), `bikeshed-preview-${Date.now()}.html`);
-    const success = await runBikeshed(pythonPath, doc.fileName, tmpOut, output);
+  // Cancel any previous Bikeshed run
+  bsProc?.kill();
 
-    if (!success) {
-      output?.appendLine(`❌ Failed to generate preview for ${doc.fileName}`);
+  /* Build argv */
+  const argv = bikeshedCli
+    ? [bikeshedCli, 'spec', '-', '-o', '-']
+    : ['-m', 'bikeshed', 'spec', '-', '-o', '-'];
+
+  bsProc = cp.spawn(python, argv, { stdio: ['pipe', 'pipe', 'pipe'] });
+
+  bsProc.stdin.end(doc.getText());
+
+  const outBuf: string[] = [];
+  let stderr = '';
+
+  bsProc.stdout.on('data', d => outBuf.push(d.toString()));
+  bsProc.stderr.on('data', d => (stderr += d.toString()));
+
+  bsProc.on('close', async code => {
+    const html = outBuf.join('');
+
+    // cache‑stale detection (once/day)
+    if (/cache\s+is\s+\d+\s+days\s+old/i.test(stderr)) {
+      const now = Date.now();
+      if (now - lastStalePrompt > DAY) {
+        lastStalePrompt = now;
+        const choice = await vscode.window.showInformationMessage(
+          'Bikeshed cache is stale. Update now?',
+          'Yes',
+          'No'
+        );
+        if (choice === 'Yes') {
+          const ok = await ensureBikeshedCache(python, log);
+          if (ok) return updatePreview(doc, context, output); // rerun once
+        }
+      }
+    }
+
+    if (code !== 0 || !html) {
+      log.appendLine(`[Bikeshed error] ${stderr}`);
       return;
     }
 
-    const html = fs.readFileSync(tmpOut, 'utf8');
-    fs.unlink(tmpOut, () => {}); // cleanup temp file (ignore errors)
+    renderInWebview(html, context);
+  });
 
-    const cssPath = path.join(
-      context.extensionPath,
-      'resources',
-      'assets',
-      'styles',
-      'preview.css'
-    );
-    const css = fs.existsSync(cssPath) ? fs.readFileSync(cssPath, 'utf8') : '';
-
-    if (!previewPanel) {
-      previewPanel = vscode.window.createWebviewPanel(
-        'bikeshedPreview',
-        `📘 Preview: ${path.basename(doc.fileName)}`,
-        vscode.ViewColumn.Beside,
-        { enableScripts: true }
-      );
-
-      previewPanel.onDidDispose(() => {
-        previewPanel = undefined;
-      });
-    }
-
-    previewPanel.webview.html = wrapHtml(html, css);
-    output?.appendLine(`✅ Live preview updated for ${doc.fileName}`);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    vscode.window.showErrorMessage(`Error updating Bikeshed preview: ${msg}`);
-    output?.appendLine(`❌ Exception in updatePreview: ${msg}`);
-  }
-}
-
-function runBikeshed(
-  pythonPath: string,
-  filePath: string,
-  outFile: string,
-  output?: vscode.OutputChannel
-): Promise<boolean> {
-  return new Promise(resolve => {
-    const proc = cp.spawn(
-      pythonPath,
-      ['-m', 'bikeshed', 'spec', filePath, '-f', 'html', '-o', outFile],
-      { shell: true }
-    );
-
-    let stderr = '';
-
-    proc.stderr.on('data', data => {
-      stderr += data.toString();
-    });
-
-    proc.on('close', code => {
-      if (code === 0) {
-        resolve(true);
-      } else {
-        output?.appendLine(`[Bikeshed error] ${stderr}`);
-        resolve(false);
-      }
-    });
-
-    proc.on('error', err => {
-      output?.appendLine(`[Process error] ${err.message}`);
-      resolve(false);
-    });
+  bsProc.on('error', err => {
+    log.appendLine(`[Process error] ${err.message}`);
   });
 }
 
-function wrapHtml(body: string, css: string): string {
-  return `
-    <!DOCTYPE html>
-    <html lang="en">
-      <head>
-        <meta charset="utf-8">
-        <style>${css}</style>
-      </head>
-      <body>${body}</body>
-    </html>
-  `;
+/* ──────────────────────────────────────────────────────────────────────────── */
+/*  Webview helpers                                                            */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
+function renderInWebview(html: string, context: vscode.ExtensionContext) {
+  if (!previewPanel) {
+    previewPanel = vscode.window.createWebviewPanel(
+      'bikeshedPreview',
+      `📘 Preview: ${vscode.window.activeTextEditor ? path.basename(vscode.window.activeTextEditor.document.fileName) : ''}`,
+      vscode.ViewColumn.Beside,
+      { enableScripts: true }
+    );
+    previewPanel.onDidDispose(() => (previewPanel = undefined));
+  }
+
+  previewPanel.webview.html = /<\s*html[\s>]/i.test(html)
+    ? injectCsp(html)
+    : wrapHtml(html);
+}
+
+function injectCsp(rawHtml: string): string {
+  // Inject CSP meta right after <head> (best‑effort)
+  return rawHtml.replace(
+    /(<!DOCTYPE[^>]*>\s*<html[^>]*>\s*<head[^>]*>)/i,
+    `$1<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">`
+  );
+}
+
+function wrapHtml(body: string): string {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';"><style>html,body{box-sizing:border-box}body{font-family:system-ui,sans-serif;padding:2rem;margin:auto;max-width:900px;line-height:1.6;color:#1a1a1a;background:#fff}</style></head><body>${body}</body></html>`;
 }

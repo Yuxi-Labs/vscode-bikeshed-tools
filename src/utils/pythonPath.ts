@@ -5,18 +5,20 @@ import * as fs from 'fs';
 let internalOutput: vscode.OutputChannel | undefined;
 
 /**
- * Resolve the Python executable for running Bikeshed.
- * 1. Honor the `bikeshedTools.pythonPath` setting (default "python3").
- * 2. If the value is a bare command (no slashes/back‑slashes), return it unchanged.
- * 3. If it looks like a path, expand ~ and validate that the file exists & is executable.
- * 4. Fall back to "python".
+ * Resolve the Python interpreter for running Bikeshed.
+ *
+ *   1. Honour `bikeshedTools.pythonPath` (default "python3").
+ *      – If the user provides a *bare command* (basename === value) we simply
+ *        return it untouched and let the shell locate it.
+ *      – If it looks like a path, expand ~ and verify it exists + is exec‑able.
+ *
+ *   2. When falling back, prefer `python3` over `python` **if both exist** to
+ *      increase the chance of hitting a modern venv.
  */
 export function getPythonPath(output?: vscode.OutputChannel): string {
-  // Ensure we always have an output channel
+  // Ensure an output channel for debug spew
   if (!output) {
-    if (!internalOutput) {
-      internalOutput = vscode.window.createOutputChannel('Bikeshed Tools (Python)');
-    }
+    if (!internalOutput) internalOutput = vscode.window.createOutputChannel('Bikeshed Tools (Python)');
     output = internalOutput;
     output.show(true);
   }
@@ -24,47 +26,69 @@ export function getPythonPath(output?: vscode.OutputChannel): string {
   const config = vscode.workspace.getConfiguration('bikeshedTools');
   let userPath = (config.get<string>('pythonPath') || 'python3').trim();
 
-  output.appendLine(`🐍 Config setting 'pythonPath': ${userPath}`);
+  output.appendLine(`🐍 config pythonPath = ${userPath}`);
 
   // Strip accidental quotes
   userPath = userPath.replace(/^"(.*)"$/, '$1');
-  output.appendLine(`🔧 Cleaned Python path: ${userPath}`);
+  output.appendLine(`🔧 cleaned         = ${userPath}`);
 
-  // Expand a leading ~
+  // Expand leading ~
   const homeDir = process.env.HOME || process.env.USERPROFILE || '';
-  let expanded = userPath.startsWith('~')
-    ? path.join(homeDir, userPath.slice(1))
-    : userPath;
+  const expanded = userPath.startsWith('~') ? path.join(homeDir, userPath.slice(1)) : userPath;
 
-  // ────────────────────────────────────────────────────────────────────────────────
-  // 1) Bare command (no path separators) → trust the shell to find it
-  // ────────────────────────────────────────────────────────────────────────────────
-  const hasSeparator = expanded.includes('/') || expanded.includes('\\');
-  if (!hasSeparator && !path.isAbsolute(expanded)) {
-    output.appendLine(`🔎 Treating '${expanded}' as command on PATH.`);
+  /* ---------------------------------------------------------------------- */
+  /*  1) bare command? (basename === value)                                 */
+  /* ---------------------------------------------------------------------- */
+  const isBare = path.basename(expanded) === expanded && !path.isAbsolute(expanded);
+  if (isBare) {
+    output.appendLine(`🔎 treating as command on PATH → ${expanded}`);
     return expanded;
   }
 
-  // ────────────────────────────────────────────────────────────────────────────────
-  // 2) Looks like a real path → validate
-  // ────────────────────────────────────────────────────────────────────────────────
+  /* ---------------------------------------------------------------------- */
+  /*  2) Looks like a filesystem path → validate                             */
+  /* ---------------------------------------------------------------------- */
   const resolved = path.normalize(expanded);
-  output.appendLine(`📌 Checking absolute path: ${resolved}`);
+  output.appendLine(`📌 resolved path   = ${resolved}`);
 
   if (!fs.existsSync(resolved)) {
-    output.appendLine(`❌ Python executable not found at: ${resolved}`);
-    return 'python'; // graceful fallback
+    output.appendLine(`❌ not found; falling back strategy engaged.`);
+    return preferPython3(output);
   }
 
   if (process.platform !== 'win32') {
     try {
       fs.accessSync(resolved, fs.constants.X_OK);
     } catch {
-      output.appendLine(`🚫 Found ${resolved} but it is not executable.`);
-      return 'python';
+      output.appendLine('🚫 exists but not executable; falling back.');
+      return preferPython3(output);
     }
   }
 
-  output.appendLine(`✅ Using Python at: ${resolved}`);
+  output.appendLine(`✅ using explicit python at ${resolved}`);
   return resolved;
+}
+
+/* ----------------------------------------------------------------------- */
+/*  If user path fails, we probe PATH for python3 first, then python        */
+/* ----------------------------------------------------------------------- */
+function preferPython3(output: vscode.OutputChannel): string {
+  const candidate = process.platform === 'win32' ? 'python3.exe' : 'python3';
+  output.appendLine(`🔍 checking ${candidate} on PATH…`);
+  if (commandExists(candidate)) {
+    output.appendLine('✅ found python3; using that.');
+    return candidate.replace(/\.exe$/, '');
+  }
+  output.appendLine('🔍 python3 missing; falling back to python.');
+  return process.platform === 'win32' ? 'python.exe' : 'python';
+}
+
+/* Simple sync check using fs.access on PATH resolution */
+function commandExists(cmd: string): boolean {
+  const dirs = (process.env.PATH || '').split(path.delimiter);
+  for (const dir of dirs) {
+    const full = path.join(dir, cmd);
+    if (fs.existsSync(full)) return true;
+  }
+  return false;
 }

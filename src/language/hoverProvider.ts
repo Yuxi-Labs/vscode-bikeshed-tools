@@ -1,35 +1,80 @@
 import * as vscode from 'vscode';
 
+/* ──────────────────────────────────────────────────────────────────────────── */
+/*  Hover text for Bikeshed metadata keys                                      */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
 const hoverInfoMap: Record<string, string> = {
-  title: '📝 **Title**: The full name of the specification.',
-  shortname: '🔗 **Shortname**: Used for URLs and document IDs.',
-  level: '📶 **Level**: Version number of the spec.',
-  status: '📜 **Status**: Indicates the maturity (e.g., `w3c/WD`, `w3c/CR`).',
-  ed: '🔧 **Editor\'s Draft URL**: Link to the Editor’s Draft.',
-  url: '🌐 **URL**: Canonical URL for the spec.',
-  latest: '📍 **Latest Version URL**: Points to the latest version of the document.',
-  previous: '⏪ **Previous Version URL**: Refers to the prior publication.'
+  title:       '📝 **Title** — full title of the spec.',
+  shortname:   '🔗 **Shortname** — used in URLs and IDs.',
+  level:       '📶 **Level** — version number of the spec.',
+  status:      '📜 **Status** — maturity label (e.g. `w3c/WD`).',
+  url:         '🌐 **URL** — canonical URL for the spec.',
+  latest:      '📍 **Latest** — link to the latest TR version.',
+  previous:    '⏪ **Previous** — link to the preceding TR version.',
+  ed:          '🛠 **ED** — URL of the Editor’s Draft.',
+  editor:      '💁 **Editor** — `<name>, <org>, <email>` triple.',
+  abstract:    '✏️ **Abstract** — one‑paragraph summary.',
+  boilerplate: '📑 **Boilerplate** — `yes`/`no` to include BS boilerplate.',
+  inlinejson:  '🧩 **InlineJSON** — embed JSON literal for preprocessor.',
+  repository:  '📦 **Repository** — URL of source repo.',
+  feedback:    '💌 **Feedback** — public comment list URL.'
 };
 
+/* ──────────────────────────────────────────────────────────────────────────── */
+/*  Hover provider                                                             */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
 export class BikeshedHoverProvider implements vscode.HoverProvider {
-  /**
-   * Provide hover information for Bikeshed metadata keys.
-   */
   provideHover(
-    document: vscode.TextDocument,
-    position: vscode.Position,
-    _token: vscode.CancellationToken
+    doc: vscode.TextDocument,
+    pos: vscode.Position
   ): vscode.ProviderResult<vscode.Hover> {
-    const range = document.getWordRangeAtPosition(position, /[A-Za-z][\w-]*/);
+    const range = doc.getWordRangeAtPosition(pos, /[A-Za-z][\w-]*/);
     if (!range) return;
 
-    const word = document.getText(range).toLowerCase();
-    const hoverText = hoverInfoMap[word];
+    const key = doc.getText(range).toLowerCase();
+    const msg = hoverInfoMap[key];
 
-    if (hoverText) {
-      return new vscode.Hover(new vscode.MarkdownString(hoverText), range);
-    }
+    const md = new vscode.MarkdownString(msg ?? `Bikeshed key: \`${key}\``);
+    md.isTrusted = true; // allow http(s) links inside hover text
 
-    return;
+    return new vscode.Hover(md, range);
   }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────── */
+/*  Completion provider                                                        */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
+export function registerCompletions(): vscode.Disposable {
+  const items = Object.entries(hoverInfoMap).map(([key, doc]) => {
+    const ci = new vscode.CompletionItem(key, vscode.CompletionItemKind.Property);
+    ci.insertText = key + ': ';
+    ci.detail = 'Bikeshed metadata key';
+    const md = new vscode.MarkdownString(doc);
+    md.isTrusted = true;
+    ci.documentation = md;
+    return ci;
+  });
+
+  const provider: vscode.CompletionItemProvider = {
+    provideCompletionItems(document, position) {
+      // only inside <pre class='metadata'> blocks, at start of a line
+      const textBefore = document
+        .getText(new vscode.Range(new vscode.Position(0, 0), position))
+        .toLowerCase();
+      const insideMeta = textBefore.lastIndexOf('<pre') > textBefore.lastIndexOf('</pre');
+      if (!insideMeta) return;
+
+      const line = document.lineAt(position.line).text;
+      if (/^\s*[\w-]*$/.test(line.slice(0, position.character))) {
+        return items;
+      }
+      return undefined;
+    }
+  };
+
+  // trigger on colon or when user hits Ctrl‑Space
+  return vscode.languages.registerCompletionItemProvider('bikeshed', provider, ':');
 }
