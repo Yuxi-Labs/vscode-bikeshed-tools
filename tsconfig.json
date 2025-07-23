@@ -16,14 +16,22 @@
     /* Optional sanity checks you *should* enable but probably won’t */
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "noUnusedParameters": false             // Set to true if you enjoy pain
+    "noUnusedParameters": false,             // Set to true if you enjoy pain
+
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "types": [
+      "node",
+      "vscode",
+      "vscode-languageserver"
+    ]
   },
   "include": [
-    "src/**/*",
-    "test/**/*"
+    "src/**/*"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "test/**/*"
   ]
 }

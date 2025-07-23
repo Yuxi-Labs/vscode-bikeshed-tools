@@ -2,42 +2,133 @@ import * as vscode from 'vscode';
 
 let collection: vscode.DiagnosticCollection;
 
-export function activateDiagnostics(context: vscode.ExtensionContext) {
+/* ──────────────────────────────────────────────────────────────────────────── */
+/*  Metadata expectations                                                      */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
+// Keys Bikeshed absolutely requires for a valid spec.
+const mandatoryKeys = ['title', 'shortname', 'status'];
+// Keys we explicitly recognise so we don’t flag them as “unknown”.
+const knownKeys = new Set([
+  ...mandatoryKeys,
+  'level',
+  'url',
+  'latest',
+  'ed',
+  'previous',
+  'editor',
+  'abstract',
+  'boilerplate',
+  'inlinejson',
+  'repository',
+  'feedback'
+]);
+
+/* ──────────────────────────────────────────────────────────────────────────── */
+/*  Public activation helpers                                                  */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
+export function activateDiagnostics(
+  context: vscode.ExtensionContext,
+  output?: vscode.OutputChannel
+) {
   collection = vscode.languages.createDiagnosticCollection('bikeshed');
   context.subscriptions.push(collection);
 
-  if (vscode.window.activeTextEditor) {
-    updateDiagnostics(vscode.window.activeTextEditor.document);
-  }
+  const log = output ?? vscode.window.createOutputChannel('Bikeshed Diagnostics');
+
+  const update = (doc: vscode.TextDocument) => updateDiagnostics(doc, log);
+
+  if (vscode.window.activeTextEditor) update(vscode.window.activeTextEditor.document);
 
   context.subscriptions.push(
-    vscode.workspace.onDidChangeTextDocument(e => updateDiagnostics(e.document)),
-    vscode.workspace.onDidOpenTextDocument(updateDiagnostics),
+    vscode.workspace.onDidChangeTextDocument(e => update(e.document)),
+    vscode.workspace.onDidOpenTextDocument(update),
     vscode.workspace.onDidCloseTextDocument(doc => collection.delete(doc.uri))
   );
+
+  log.appendLine('Bikeshed diagnostics activated.');
 }
 
-function updateDiagnostics(document: vscode.TextDocument): void {
-  if (document.languageId !== 'plaintext' || !document.fileName.endsWith('.bs')) {
-    return;
-  }
+export function deactivateDiagnostics() {
+  collection?.clear();
+  collection?.dispose();
+}
 
-  const diagnostics: vscode.Diagnostic[] = [];
+/* ──────────────────────────────────────────────────────────────────────────── */
+/*  Core logic                                                                 */
+/* ──────────────────────────────────────────────────────────────────────────── */
 
-  const text = document.getText();
-  const lines = text.split(/\r?\n/);
+function updateDiagnostics(document: vscode.TextDocument, log: vscode.OutputChannel): void {
+  if (document.languageId !== 'bikeshed' && !document.fileName.endsWith('.bs')) return;
 
-  for (let i = 0; i < lines.length; i++) {
-    const index = lines[i].indexOf('TODO');
-    if (index !== -1) {
-      diagnostics.push({
-        severity: vscode.DiagnosticSeverity.Warning,
-        message: 'Unresolved TODO',
-        range: new vscode.Range(i, index, i, index + 4),
-        source: 'bikeshedTools'
-      });
+  const diags: vscode.Diagnostic[] = [];
+
+  let insideMeta = false;
+  const seenKeys = new Set<string>();
+
+  document.getText().split(/\r?\n/).forEach((line, lineNo) => {
+    if (/^<pre\s+class=['"]metadata['"]>/i.test(line)) {
+      insideMeta = true;
+      return;
     }
-  }
+    if (/^<\/pre>/i.test(line) && insideMeta) {
+      insideMeta = false;
+      return;
+    }
 
-  collection.set(document.uri, diagnostics);
+    if (insideMeta) {
+      const m = /^(\s*?)([A-Za-z0-9_-]+)\s*:/i.exec(line);
+      if (m) {
+        const key = m[2].toLowerCase();
+        seenKeys.add(key);
+        if (!knownKeys.has(key)) {
+          const range = new vscode.Range(
+            new vscode.Position(lineNo, m[1].length),
+            new vscode.Position(lineNo, m[1].length + key.length)
+          );
+          diags.push(
+            new vscode.Diagnostic(
+              range,
+              `Unknown metadata key “${key}”.`,
+              vscode.DiagnosticSeverity.Information
+            )
+          );
+        }
+      }
+    }
+
+    // TODO warning kept from scaffold
+    const todoIdx = line.indexOf('TODO');
+    if (todoIdx !== -1) {
+      const range = new vscode.Range(
+        new vscode.Position(lineNo, todoIdx),
+        new vscode.Position(lineNo, todoIdx + 4)
+      );
+      diags.push(
+        new vscode.Diagnostic(
+          range,
+          'TODO found — please complete this section.',
+          vscode.DiagnosticSeverity.Warning
+        )
+      );
+    }
+  });
+
+  // Check for missing mandatory keys after we’ve parsed the file.
+  mandatoryKeys.forEach(key => {
+    if (!seenKeys.has(key)) {
+      const diag = new vscode.Diagnostic(
+        new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 0)),
+        `Missing mandatory metadata key “${key}”.`,
+        vscode.DiagnosticSeverity.Error
+      );
+      diags.push(diag);
+    }
+  });
+
+  collection.set(document.uri, diags);
+  log.appendLine(
+    `Diagnostics updated for ${document.uri.fsPath} (${diags.length} issues)`
+  );
 }
