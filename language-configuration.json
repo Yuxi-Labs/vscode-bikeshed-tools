@@ -5,21 +5,26 @@
   "brackets": [
     ["{", "}"],
     ["[", "]"],
-    ["(", ")"]
+    ["(", ")"],
+    ["<<", ">>"]
   ],
   "autoClosingPairs": [
     { "open": "{", "close": "}" },
     { "open": "[", "close": "]" },
     { "open": "(", "close": ")" },
     { "open": "\"", "close": "\"", "notIn": ["string"] },
-    { "open": "'", "close": "'", "notIn": ["string", "comment"] }
+    { "open": "'", "close": "'", "notIn": ["string", "comment"] },
+    { "open": "<<", "close": ">>" },
+    { "open": "''", "close": "''", "notIn": ["string", "comment"] }
   ],
   "surroundingPairs": [
     { "open": "{", "close": "}" },
     { "open": "[", "close": "]" },
     { "open": "(", "close": ")" },
     { "open": "\"", "close": "\"" },
-    { "open": "'", "close": "'" }
+    { "open": "'", "close": "'" },
+    { "open": "<<", "close": ">>" },
+    { "open": "''", "close": "''" }
   ],
   "onEnterRules": [
     {
@@ -36,5 +41,9 @@
       }
     }
   ],
-  "wordPattern": "(?:[#@]?[A-Za-z0-9_-]+)"
+  "wordPattern": "(?:[#@]?[A-Za-z0-9_-]+)",
+  "indentationRules": {
+    "increaseIndentPattern": "^(\\s*(Sequence|Stack|Choice|Optional|OneOrMore|ZeroOrMore):)$",
+    "decreaseIndentPattern": "^\\s*$"
+  }
 }

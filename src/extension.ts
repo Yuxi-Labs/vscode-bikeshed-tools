@@ -5,15 +5,12 @@ import {
   LanguageClientOptions,
   ServerOptions,
   TransportKind
-} from 'vscode-languageclient/node';
+} from 'vscode-languageclient';
 
 import { buildSpec } from './commands/buildSpec';
 import { previewSpec } from './commands/previewSpec';
 import { activateDiagnostics, deactivateDiagnostics } from './utils/diagnostics';
-import {
-  BikeshedHoverProvider,
-  registerCompletions
-} from './language/hoverProvider';
+import { registerCompletions } from './language/hoverProvider'; // completions only
 import { initLivePreview, disposeLivePreview } from './preview/previewManager';
 
 let outputChannel: vscode.OutputChannel;
@@ -61,11 +58,8 @@ export function activate(context: vscode.ExtensionContext) {
       )
     );
 
-    /* Hover + IntelliSense */
-    context.subscriptions.push(
-      vscode.languages.registerHoverProvider('bikeshed', new BikeshedHoverProvider()),
-      registerCompletions()
-    );
+    /* IntelliSense (completion only – hover is served by the language server) */
+    context.subscriptions.push(registerCompletions());
 
     /* Diagnostics + live preview */
     activateDiagnostics(context, outputChannel);
@@ -76,19 +70,26 @@ export function activate(context: vscode.ExtensionContext) {
     /* ─────────────────────────────── */
     const serverModule = context.asAbsolutePath(path.join('dist', 'server.cjs'));
     const serverOptions: ServerOptions = {
-      run: { module: serverModule, transport: TransportKind.ipc },
+      run:   { module: serverModule, transport: TransportKind.ipc },
       debug: { module: serverModule, transport: TransportKind.ipc }
     };
     const clientOptions: LanguageClientOptions = {
       documentSelector: [{ scheme: 'file', language: 'bikeshed' }]
     };
 
-    client = new LanguageClient('bikeshedLS', 'Bikeshed Language Server', serverOptions, clientOptions);
+    client = new LanguageClient(
+      'bikeshedLS',
+      'Bikeshed Language Server',
+      serverOptions,
+      clientOptions
+    );
     context.subscriptions.push(client.start());
 
     outputChannel.appendLine('Bikeshed Tools extension activated successfully.');
   } catch (err) {
-    const msg = `Failed to activate Bikeshed Tools: ${err instanceof Error ? err.message : String(err)}`;
+    const msg = `Failed to activate Bikeshed Tools: ${
+      err instanceof Error ? err.message : String(err)
+    }`;
     outputChannel.appendLine(`[ERROR] ${msg}`);
     vscode.window.showErrorMessage(msg);
   }

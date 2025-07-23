@@ -22,7 +22,7 @@ const hoverInfoMap: Record<string, string> = {
 };
 
 /* ──────────────────────────────────────────────────────────────────────────── */
-/*  Hover provider                                                             */
+/*  Hover provider (optional fallback for non-LSP mode)                        */
 /* ──────────────────────────────────────────────────────────────────────────── */
 
 export class BikeshedHoverProvider implements vscode.HoverProvider {
@@ -37,44 +37,41 @@ export class BikeshedHoverProvider implements vscode.HoverProvider {
     const msg = hoverInfoMap[key];
 
     const md = new vscode.MarkdownString(msg ?? `Bikeshed key: \`${key}\``);
-    md.isTrusted = true; // allow http(s) links inside hover text
+    md.isTrusted = true;
 
     return new vscode.Hover(md, range);
   }
 }
 
 /* ──────────────────────────────────────────────────────────────────────────── */
-/*  Completion provider                                                        */
+/*  Completion provider (client-side only)                                     */
 /* ──────────────────────────────────────────────────────────────────────────── */
 
 export function registerCompletions(): vscode.Disposable {
   const items = Object.entries(hoverInfoMap).map(([key, doc]) => {
-    const ci = new vscode.CompletionItem(key, vscode.CompletionItemKind.Property);
-    ci.insertText = key + ': ';
-    ci.detail = 'Bikeshed metadata key';
+    const item = new vscode.CompletionItem(key, vscode.CompletionItemKind.Property);
+    item.insertText = key + ': ';
+    item.detail = 'Bikeshed metadata key';
     const md = new vscode.MarkdownString(doc);
     md.isTrusted = true;
-    ci.documentation = md;
-    return ci;
+    item.documentation = md;
+    return item;
   });
 
   const provider: vscode.CompletionItemProvider = {
     provideCompletionItems(document, position) {
-      // only inside <pre class='metadata'> blocks, at start of a line
       const textBefore = document
         .getText(new vscode.Range(new vscode.Position(0, 0), position))
         .toLowerCase();
+
       const insideMeta = textBefore.lastIndexOf('<pre') > textBefore.lastIndexOf('</pre');
       if (!insideMeta) return;
 
       const line = document.lineAt(position.line).text;
-      if (/^\s*[\w-]*$/.test(line.slice(0, position.character))) {
-        return items;
-      }
-      return undefined;
+      const isStartOfLine = /^\s*[\w-]*$/.test(line.slice(0, position.character));
+      return isStartOfLine ? items : undefined;
     }
   };
 
-  // trigger on colon or when user hits Ctrl‑Space
   return vscode.languages.registerCompletionItemProvider('bikeshed', provider, ':');
 }
