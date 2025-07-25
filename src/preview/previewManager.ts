@@ -4,10 +4,6 @@ import * as path from 'path';
 import { getPythonPath } from '../utils/pythonPath';
 import { getBikeshedPath, ensureBikeshedCache } from '../utils/bikeshedPath';
 
-/* ──────────────────────────────────────────────────────────────────────────── */
-/*  Globals                                                                    */
-/* ──────────────────────────────────────────────────────────────────────────── */
-
 let previewPanel: vscode.WebviewPanel | undefined;
 let bsProc: cp.ChildProcessWithoutNullStreams | undefined;
 let debounceTimer: NodeJS.Timeout | undefined;
@@ -15,14 +11,13 @@ let debounceTimer: NodeJS.Timeout | undefined;
 let lastStalePrompt = 0;
 const DAY = 86_400_000;
 
-/* ──────────────────────────────────────────────────────────────────────────── */
-/*  Entry                                                                      */
-/* ──────────────────────────────────────────────────────────────────────────── */
-
+/* ------------------------------------------------------------------ */
+/*  Entry‑points                                                      */
+/* ------------------------------------------------------------------ */
 export function initLivePreview(
   context: vscode.ExtensionContext,
   output?: vscode.OutputChannel
-) {
+): void {
   output?.appendLine('Live preview enabled.');
 
   context.subscriptions.push(
@@ -45,57 +40,57 @@ export function initLivePreview(
   );
 }
 
-export function disposeLivePreview() {
+export function disposeLivePreview(): void {
   bsProc?.kill();
   previewPanel?.dispose();
   previewPanel = undefined;
 }
 
+/* ------------------------------------------------------------------ */
 function isBikeshedFile(doc: vscode.TextDocument): boolean {
   return doc.languageId === 'bikeshed' || path.extname(doc.fileName) === '.bs';
 }
-
-/* ──────────────────────────────────────────────────────────────────────────── */
-/*  Compilation + Rendering                                                    */
-/* ──────────────────────────────────────────────────────────────────────────── */
 
 async function updatePreview(
   doc: vscode.TextDocument,
   context: vscode.ExtensionContext,
   output?: vscode.OutputChannel
-) {
+): Promise<void> {
   const python = getPythonPath(output);
   if (!python) return;
-  const bikeshedCli = getBikeshedPath(output);
 
-  const log = output || vscode.window.createOutputChannel('Bikeshed Live Preview');
+  const bikeshedCli = getBikeshedPath(output);
+  const log = output ?? vscode.window.createOutputChannel('Bikeshed Live Preview');
   if (!output) {
     log.clear();
     log.show(true);
   }
 
-  // Cancel any previous Bikeshed run
   bsProc?.kill();
 
-  /* Build argv */
-  const argv = bikeshedCli
-    ? [bikeshedCli, 'spec', '-', '-o', '-']
-    : ['-m', 'bikeshed', 'spec', '-', '-o', '-'];
+  /* ---------- invocation heuristic ---------- */
+  const useModule = !bikeshedCli || bikeshedCli.endsWith('.py');
+  const cmd = useModule ? python : bikeshedCli;
+  const args = useModule
+    ? ['-m', 'bikeshed', 'spec', '-', '-o', '-']
+    : ['spec', '-', '-o', '-'];
 
-  bsProc = cp.spawn(python, argv, { stdio: ['pipe', 'pipe', 'pipe'] });
+  bsProc = cp.spawn(cmd, args, { stdio: ['pipe', 'pipe', 'pipe'] });
 
-  bsProc.stdin.end(doc.getText());
+  const src = doc.getText().replace(/\r\n?/g, '\n');
+  bsProc.stdin.end(src);
 
   const outBuf: string[] = [];
   let stderr = '';
 
   bsProc.stdout.on('data', d => outBuf.push(d.toString()));
-  bsProc.stderr.on('data', d => (stderr += d.toString()));
+  bsProc.stderr.on('data', d => {
+    stderr += d.toString();
+  });
 
   bsProc.on('close', async code => {
     const html = outBuf.join('');
 
-    // cache‑stale detection (once/day)
     if (/cache\s+is\s+\d+\s+days\s+old/i.test(stderr)) {
       const now = Date.now();
       if (now - lastStalePrompt > DAY) {
@@ -107,7 +102,10 @@ async function updatePreview(
         );
         if (choice === 'Yes') {
           const ok = await ensureBikeshedCache(python, log);
-          if (ok) return updatePreview(doc, context, output); // rerun once
+          if (ok) {
+            await updatePreview(doc, context, output);
+            return;
+          }
         }
       }
     }
@@ -117,7 +115,7 @@ async function updatePreview(
       return;
     }
 
-    renderInWebview(html, context);
+    renderInWebview(html);
   });
 
   bsProc.on('error', err => {
@@ -125,19 +123,22 @@ async function updatePreview(
   });
 }
 
-/* ──────────────────────────────────────────────────────────────────────────── */
-/*  Webview helpers                                                            */
-/* ──────────────────────────────────────────────────────────────────────────── */
-
-function renderInWebview(html: string, context: vscode.ExtensionContext) {
+/* ------------------------------------------------------------------ */
+function renderInWebview(html: string): void {
   if (!previewPanel) {
     previewPanel = vscode.window.createWebviewPanel(
       'bikeshedPreview',
-      `📘 Preview: ${vscode.window.activeTextEditor ? path.basename(vscode.window.activeTextEditor.document.fileName) : ''}`,
+      `📘 Preview: ${
+        vscode.window.activeTextEditor
+          ? path.basename(vscode.window.activeTextEditor.document.fileName)
+          : ''
+      }`,
       vscode.ViewColumn.Beside,
       { enableScripts: true }
     );
-    previewPanel.onDidDispose(() => (previewPanel = undefined));
+    previewPanel.onDidDispose(() => {
+      previewPanel = undefined;
+    });
   }
 
   previewPanel.webview.html = /<\s*html[\s>]/i.test(html)
@@ -146,7 +147,6 @@ function renderInWebview(html: string, context: vscode.ExtensionContext) {
 }
 
 function injectCsp(rawHtml: string): string {
-  // Inject CSP meta right after <head> (best‑effort)
   return rawHtml.replace(
     /(<!DOCTYPE[^>]*>\s*<html[^>]*>\s*<head[^>]*>)/i,
     `$1<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">`

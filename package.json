@@ -38,7 +38,9 @@
   "activationEvents": [
     "onLanguage:bikeshed",
     "onCommand:bikeshedTools.buildSpec",
-    "onCommand:bikeshedTools.previewSpec"
+    "onCommand:bikeshedTools.previewSpec",
+    "onCommand:bikeshedTools.selectPython",
+    "onCommand:bikeshedTools.selectBikeshed"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -63,13 +65,8 @@
     "languages": [
       {
         "id": "bikeshed",
-        "aliases": [
-          "Bikeshed",
-          "bikeshed"
-        ],
-        "extensions": [
-          ".bs"
-        ],
+        "aliases": ["Bikeshed", "bikeshed"],
+        "extensions": [".bs"],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -81,7 +78,12 @@
       {
         "command": "bikeshedTools.previewSpec",
         "title": "Bikeshed: Preview Spec"
-      }
+      },
+      { "command": "bikeshedTools.selectPython",
+        "title": "Bikeshed: Select Python Interpreter"
+      },
+      { "command": "bikeshedTools.selectBikeshed",
+        "title": "Bikeshed: Select Bikeshed CLI" }
     ],
     "menus": {
       "editor/title": [
@@ -102,10 +104,15 @@
     "configuration": {
       "title": "Bikeshed Tools",
       "properties": {
+        "bikeshedTools.bikeshedPath": {
+          "type": "string",
+          "default": "",
+          "description": "Optional explicit path to the Bikeshed CLI. Leave empty to use “python -m bikeshed” or whatever is on $PATH."
+        },
         "bikeshedTools.pythonPath": {
           "type": "string",
-          "default": "python3",
-          "description": "Path to the Python interpreter with Bikeshed installed."
+          "default": "",
+          "description": "Path to the Python interpreter with Bikeshed installed. Leave empty to use 'python' on Windows or 'python3' elsewhere."
         },
         "bikeshedTools.livePreview": {
           "type": "boolean",
@@ -116,7 +123,7 @@
     }
   },
   "scripts": {
-    "publish": "npm run build && npx vsce package",
+    "publish": "npm run build && npx vsce package -o ./OUTPUT",
     "compile": "npm run check-types && npm run lint && node esbuild.js",
     "watch": "npm-run-all -p watch:*",
     "watch:esbuild": "node esbuild.js --watch",
@@ -152,9 +159,7 @@
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },
-  "extensionKind": [
-    "workspace"
-  ],
+  "extensionKind": ["workspace"],
   "dependencies": {
     "glob": "^11.0.3",
     "which": "^5.0.0"

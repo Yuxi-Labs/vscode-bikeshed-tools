@@ -1,5 +1,5 @@
-import * as path from 'path';
 import * as vscode from 'vscode';
+import * as path from 'path';
 
 import {
   LanguageClient,
@@ -12,61 +12,58 @@ import type {
 
 import { buildSpec } from './commands/buildSpec';
 import { previewSpec } from './commands/previewSpec';
+import { selectPython } from './commands/selectPython';
+import { selectBikeshed } from './commands/selectBikeshed';
 import { activateDiagnostics, deactivateDiagnostics } from './utils/diagnostics';
 import { registerCompletions } from './language/completionProvider';
+import { BikeshedHoverProvider } from './language/hoverProvider';
 import { initLivePreview, disposeLivePreview } from './preview/previewManager';
-import { resolveBikeshed } from './utils/resolveBikeshed';          // ← NEW
+import { resolveBikeshed } from './utils/resolveBikeshed';
+import { getPythonPath } from './utils/pythonPath';
 
 let outputChannel: vscode.OutputChannel;
 let client: LanguageClient;
 
-/* ──────────────────────────────────────────────────────────────── */
-/* Helper — persist user-chosen executables                         */
-/* ──────────────────────────────────────────────────────────────── */
-async function selectExecutable(cfgKey: string, dialogTitle: string) {
-  const pick = await vscode.window.showOpenDialog({
-    title: dialogTitle,
-    canSelectMany: false,
-    canSelectFolders: false,
-    canSelectFiles: true,
-    filters:
-      process.platform === 'win32'
-        ? { Executable: ['exe', 'bat', 'cmd'] }
-        : undefined
-  });
-
-  if (pick?.length) {
-    await vscode.workspace
-      .getConfiguration('bikeshedTools')
-      .update(cfgKey, pick[0].fsPath, vscode.ConfigurationTarget.Workspace);
-    vscode.window.showInformationMessage(
-      `${dialogTitle} set to ${pick[0].fsPath}`
-    );
-  }
-}
-
-/* ──────────────────────────────────────────────────────────────── */
-/* Activation                                                      */
-/* ──────────────────────────────────────────────────────────────── */
+/* ───────────────────────────── */
+/*  Extension activation         */
+/* ───────────────────────────── */
 export async function activate(context: vscode.ExtensionContext) {
   outputChannel = vscode.window.createOutputChannel('Bikeshed Tools');
-  outputChannel.appendLine('Activating Bikeshed Tools extension…');
+  outputChannel.appendLine('🔌 Activating Bikeshed Tools extension…');
 
   try {
-    /* ── 1.  Ensure we can run the Bikeshed CLI ────────────────── */
-    const bikeshedExe = await resolveBikeshed();
-    if (!bikeshedExe) {
+    /* 1 · Python */
+    const python = getPythonPath(outputChannel);
+    if (!python) {
+      const pick = await vscode.window.showWarningMessage(
+        'Python not found. Select Python interpreter?',
+        'Select',
+        'Ignore'
+      );
+      if (pick === 'Select') {
+        await selectPython();
+      }
+    }
+
+    /* 2 · Bikeshed */
+    const bikeshed = await resolveBikeshed();
+    if (bikeshed) {
+      await vscode.workspace
+        .getConfiguration('bikeshedTools')
+        .update('bikeshedPath', bikeshed, vscode.ConfigurationTarget.Workspace);
+      outputChannel.appendLine(`✅ Bikeshed CLI resolved to: ${bikeshed}`);
+    } else {
       const choice = await vscode.window.showWarningMessage(
         'Bikeshed executable not found. Preview & build commands will fail until one is configured.',
         'Select Binary…',
         'Ignore'
       );
       if (choice === 'Select Binary…') {
-        await vscode.commands.executeCommand('bikeshedTools.selectBikeshed');
+        await selectBikeshed();
       }
     }
 
-    /* ── 2. Commands ───────────────────────────────────────────── */
+    /* 3 · Commands */
     context.subscriptions.push(
       vscode.commands.registerCommand('bikeshedTools.buildSpec', () =>
         buildSpec(outputChannel)
@@ -74,23 +71,20 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.commands.registerCommand('bikeshedTools.previewSpec', () =>
         previewSpec(outputChannel)
       ),
-      vscode.commands.registerCommand('bikeshedTools.selectPython', () =>
-        selectExecutable('pythonPath', 'Select Python Interpreter')
-      ),
-      vscode.commands.registerCommand('bikeshedTools.selectBikeshed', () =>
-        selectExecutable('bikeshedPath', 'Select Bikeshed CLI')
-      )
+      vscode.commands.registerCommand('bikeshedTools.selectPython', selectPython),
+      vscode.commands.registerCommand('bikeshedTools.selectBikeshed', selectBikeshed)
     );
 
-    /* ── 3. IntelliSense (completion only – hover via LSP) ─────── */
+    /* 4 · Language goodies */
     context.subscriptions.push(registerCompletions());
-
-    /* ── 4. Diagnostics & live preview ─────────────────────────── */
     activateDiagnostics(context, outputChannel);
     initLivePreview(context, outputChannel);
+    context.subscriptions.push(
+        vscode.languages.registerHoverProvider('bikeshed', new BikeshedHoverProvider())
+      );
 
-    /* ── 5. Language-Server Client ─────────────────────────────── */
-    const serverModule = context.asAbsolutePath(path.join('dist', 'server.cjs'));
+    /* 5 · Language server */
+    const serverModule = context.asAbsolutePath(path.join('dist', 'server.js'));
 
     const serverOptions: ServerOptions = {
       run:   { module: serverModule, transport: TransportKind.ipc },
@@ -108,12 +102,12 @@ export async function activate(context: vscode.ExtensionContext) {
       clientOptions
     );
 
-    await client.start();                 // start & await so errors surface
+    await client.start();
     context.subscriptions.push({ dispose: () => client.stop() });
 
-    outputChannel.appendLine('Bikeshed Tools extension activated.');
+    outputChannel.appendLine('🚀 Bikeshed Tools extension activated.');
   } catch (err) {
-    const msg = `Failed to activate Bikeshed Tools: ${
+    const msg = `💥 Failed to activate Bikeshed Tools: ${
       err instanceof Error ? err.message : String(err)
     }`;
     outputChannel.appendLine(`[ERROR] ${msg}`);
@@ -121,11 +115,9 @@ export async function activate(context: vscode.ExtensionContext) {
   }
 }
 
-/* ──────────────────────────────────────────────────────────────── */
-/* Deactivation                                                    */
-/* ──────────────────────────────────────────────────────────────── */
+/* ───────────────────────────── */
 export function deactivate() {
-  outputChannel?.appendLine('Deactivating Bikeshed Tools extension…');
+  outputChannel?.appendLine('🔌 Deactivating Bikeshed Tools extension…');
   outputChannel?.dispose();
   deactivateDiagnostics?.();
   disposeLivePreview?.();
