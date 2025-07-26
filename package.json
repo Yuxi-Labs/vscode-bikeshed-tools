@@ -50,6 +50,18 @@
         "path": "./resources/snippets/bikeshed.json"
       }
     ],
+    "languages": [
+      {
+        "id": "bikeshed",
+        "aliases": [
+          "Bikeshed"
+        ],
+        "extensions": [
+          ".bs"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
     "grammars": [
       {
         "language": "bikeshed",
@@ -60,19 +72,6 @@
           "meta.embedded.block.cddl": "cddl",
           "meta.embedded.block.css": "css"
         }
-      }
-    ],
-    "languages": [
-      {
-        "id": "bikeshed",
-        "aliases": [
-          "Bikeshed",
-          "bikeshed"
-        ],
-        "extensions": [
-          ".bs"
-        ],
-        "configuration": "./language-configuration.json"
       }
     ],
     "commands": [
