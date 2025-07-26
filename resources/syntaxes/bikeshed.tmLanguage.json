@@ -4,6 +4,8 @@
   "fileTypes": ["bs"],
   "uuid": "bikeshed-syntax-2025",
   "patterns": [
+    { "include": "text.html.basic" },
+
     {
       "name": "markup.block.metadata.tag.bikeshed",
       "begin": "(?i)<pre\\s+class=(['\"])(?:metadata)\\1>",
@@ -21,46 +23,65 @@
       "patterns": [
         {
           "name": "meta.metadata.line.bikeshed",
-          "match": "^(\\w+):\\s*(.+)$",
+          "match": "^\\s*([\\w\\- ]+)(:)(\\s*)(.+)$",
           "captures": {
-            "1": { "name": "keyword.other.metadata.key.bikeshed" },
-            "2": { "name": "string.unquoted.metadata.value.bikeshed" }
+            "1": { "name": "keyword.other.metadata.bikeshed" },
+            "2": { "name": "punctuation.separator.key-value.metadata.bikeshed" },
+            "4": { "name": "string.unquoted.metadata.value.bikeshed" }
           }
         }
       ]
     },
 
     { "name": "markup.heading.setext.bikeshed", "match": "^(=+|-+)$" },
-    { "name": "entity.name.section.bikeshed", "match": "^([A-Za-z0-9\\s]+)\\s+\\{#[-_a-zA-Z0-9]+\\}$" },
+    {
+      "name": "entity.name.section.bikeshed",
+      "match": "^([A-Za-z0-9\\s]+)\\s+\\{#[-_a-zA-Z0-9]+\\}$"
+    },
 
-    { "name": "keyword.other.inline.macro.bikeshed", "match": "\\[([A-Z_]+)(?:\\s+[^\\]]+)?\\]" },
+    {
+      "name": "keyword.other.inline.macro.bikeshed",
+      "match": "\\[([A-Z_]+)(?:\\s+[^\\]]+)?\\]"
+    },
 
     {
       "name": "markup.bold.bikeshed",
       "begin": "(?<!\\\\)\\*\\*",
       "end": "\\*\\*(?!\\*)",
-      "beginCaptures": { "0": { "name": "punctuation.definition.bold.begin.bikeshed" } },
-      "endCaptures":   { "0": { "name": "punctuation.definition.bold.end.bikeshed" } },
-      "patterns": [ { "match": "\\\\.", "name": "constant.character.escape.bikeshed" } ]
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.bold.begin.bikeshed" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.bold.end.bikeshed" }
+      },
+      "patterns": [
+        { "match": "\\\\.", "name": "constant.character.escape.bikeshed" }
+      ]
     },
 
     {
       "name": "markup.italic.bikeshed",
       "begin": "(?<![\\\\*])\\*",
       "end": "\\*(?!\\*)",
-      "beginCaptures": { "0": { "name": "punctuation.definition.italic.begin.bikeshed" } },
-      "endCaptures":   { "0": { "name": "punctuation.definition.italic.end.bikeshed" } },
-      "patterns": [ { "match": "\\\\.", "name": "constant.character.escape.bikeshed" } ]
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.italic.begin.bikeshed" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.italic.end.bikeshed" }
+      },
+      "patterns": [
+        { "match": "\\\\.", "name": "constant.character.escape.bikeshed" }
+      ]
     },
 
     {
       "name": "markup.inline.link.bikeshed",
-      "match": "\\\\[\\\\[(.*?)\\\\]\\\\]",
+      "match": "\\[\\[([^\\]]+)\\]\\]",
       "captures": { "1": { "name": "markup.underline.link.bikeshed" } }
     },
     {
       "name": "markup.reference.bikeshed",
-      "match": "\\\\{\\\\{([^}]+)\\\\}\\\\}",
+      "match": "\\{\\{([^}]+)\\}\\}",
       "captures": { "1": { "name": "markup.italic.reference.bikeshed" } }
     }
   ]

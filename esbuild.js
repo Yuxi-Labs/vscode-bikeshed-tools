@@ -49,8 +49,8 @@ const baseOptions = {
 
 /** The two entrypoints we need to build → their desired output files */
 const entries = [
-  { in: 'extension.ts', out: 'extension.cjs' },
-  { in: 'server.ts',    out: 'server.cjs' }
+  { in: 'extension.ts', out: 'extension.js' },
+  { in: 'server.ts',    out: 'server.js' }
 ];
 
 async function buildAll() {

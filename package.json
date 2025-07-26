@@ -38,7 +38,9 @@
   "activationEvents": [
     "onLanguage:bikeshed",
     "onCommand:bikeshedTools.buildSpec",
-    "onCommand:bikeshedTools.previewSpec"
+    "onCommand:bikeshedTools.previewSpec",
+    "onCommand:bikeshedTools.selectPython",
+    "onCommand:bikeshedTools.selectBikeshed"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -81,6 +83,14 @@
       {
         "command": "bikeshedTools.previewSpec",
         "title": "Bikeshed: Preview Spec"
+      },
+      {
+        "command": "bikeshedTools.selectPython",
+        "title": "Bikeshed: Select Python Interpreter"
+      },
+      {
+        "command": "bikeshedTools.selectBikeshed",
+        "title": "Bikeshed: Select Bikeshed CLI"
       }
     ],
     "menus": {
@@ -102,10 +112,15 @@
     "configuration": {
       "title": "Bikeshed Tools",
       "properties": {
+        "bikeshedTools.bikeshedPath": {
+          "type": "string",
+          "default": "",
+          "description": "Optional explicit path to the Bikeshed CLI. Leave empty to use “python -m bikeshed” or whatever is on $PATH."
+        },
         "bikeshedTools.pythonPath": {
           "type": "string",
-          "default": "python3",
-          "description": "Path to the Python interpreter with Bikeshed installed."
+          "default": "",
+          "description": "Path to the Python interpreter with Bikeshed installed. Leave empty to use 'python' on Windows or 'python3' elsewhere."
         },
         "bikeshedTools.livePreview": {
           "type": "boolean",
@@ -116,7 +131,7 @@
     }
   },
   "scripts": {
-    "publish": "npm run build && npx vsce package",
+    "publish": "npm run build && npx vsce package -o ./OUTPUT",
     "compile": "npm run check-types && npm run lint && node esbuild.js",
     "watch": "npm-run-all -p watch:*",
     "watch:esbuild": "node esbuild.js --watch",
@@ -134,6 +149,7 @@
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
+    "@types/tmp": "^0.2.6",
     "@types/vscode": "^1.90.0",
     "@types/which": "^3.0.4",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
@@ -157,6 +173,7 @@
   ],
   "dependencies": {
     "glob": "^11.0.3",
+    "tmp": "^0.2.3",
     "which": "^5.0.0"
   }
 }

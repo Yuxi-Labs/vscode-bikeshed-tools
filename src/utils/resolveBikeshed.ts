@@ -1,19 +1,27 @@
-// src/utils/resolveBikeshed.ts
 import * as vscode from 'vscode';
-import { glob }    from 'glob';          // ① explicit import (ESM v10)
-import * as which  from 'which';
-import * as fs     from 'fs/promises';
-import * as path   from 'path';
+import { glob } from 'glob';
+import * as which from 'which';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
-/** Safely returns the first workspace folder’s fsPath (or empty string). */
+/**
+ * Returns the root folder of the current workspace, or an empty string if not found.
+ */
 function wsRoot(): string {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
 }
 
+/**
+ * Attempts to find the Bikeshed CLI from various locations:
+ *  - Explicitly configured path
+ *  - Local virtual environment
+ *  - System PATH
+ *  - Windows Store-style pipx installs
+ */
 export async function resolveBikeshed(): Promise<string | undefined> {
   const cfg = vscode.workspace.getConfiguration('bikeshedTools');
 
-  /* 1 · explicit setting wins (trim quotes / whitespace) */
+  // 1. Check for explicit user setting
   const explicit = (cfg.get<string>('bikeshedPath') || '')
     .trim()
     .replace(/^"(.*)"$/, '$1');
@@ -21,35 +29,38 @@ export async function resolveBikeshed(): Promise<string | undefined> {
   if (explicit) {
     try {
       await fs.access(explicit);
-      return explicit; // ✅ valid custom path
+      return explicit;
     } catch {
-      /* fall through to other strategies */
+      // ignored, fall through to next
     }
   }
 
-  /* 2 · local venv */
+  // 2. Check for local virtual environment installs
   const candidates = [
-    path.join(wsRoot(), '.venv', 'bin', 'bikeshed'),
-    path.join(wsRoot(), '.venv', 'Scripts', 'bikeshed.exe')
+    path.join(wsRoot(), '.venv', 'bin', 'bikeshed'),               // Linux/macOS
+    path.join(wsRoot(), '.venv', 'Scripts', 'bikeshed.exe')        // Windows
   ];
 
   for (const p of candidates) {
     try {
       await fs.access(p);
-      return p; // ✅ found inside project venv
-    } catch { /* ignore */ }
+      return p;
+    } catch {
+      // ignored, keep looking
+    }
   }
 
-  /* 3 · anywhere on the PATH */
+  // 3. Look on PATH via which
   try {
     return which.sync('bikeshed');
-  } catch { /* ignore */ }
+  } catch {
+    // not found
+  }
 
-  /* 4 · Windows Store / pipx install */
+  // 4. Windows Store pipx fallback
   if (process.platform === 'win32') {
     const appData = process.env.LOCALAPPDATA;
     if (appData) {
-      // e.g.  "%LOCALAPPDATA%\Packages\PythonSoftwareFoundation.Python.3_*\LocalCache\local-packages\PythonXY\Scripts\bikeshed.exe"
       const pattern = path.join(
         appData,
         'Packages',
@@ -63,11 +74,15 @@ export async function resolveBikeshed(): Promise<string | undefined> {
 
       try {
         const matches = await glob(pattern);
-        if (matches.length) return matches[0]; // ✅ first match wins
-      } catch { /* ignore */ }
+        if (matches.length) {
+          return matches[0]; // return the first match
+        }
+      } catch {
+        // ignored
+      }
     }
   }
 
-  /* 🙅 nothing found */
+  // If nothing was found
   return undefined;
 }
