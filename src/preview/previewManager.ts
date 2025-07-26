@@ -1,40 +1,36 @@
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as path from 'path';
+import * as fs from 'fs';
+import * as os from 'os';
 import { getPythonPath } from '../utils/pythonPath';
-import { getBikeshedPath, ensureBikeshedCache } from '../utils/bikeshedPath';
+import { getBikeshedPath } from '../utils/bikeshedPath';
 
 let previewPanel: vscode.WebviewPanel | undefined;
-let bsProc: cp.ChildProcessWithoutNullStreams | undefined;
+let bsProc: cp.ChildProcess | undefined;
 let debounceTimer: NodeJS.Timeout | undefined;
+let currentFile: string | undefined;
 
-let lastStalePrompt = 0;
-const DAY = 86_400_000;
-
-/* ------------------------------------------------------------------ */
-/*  Entry‑points                                                      */
-/* ------------------------------------------------------------------ */
 export function initLivePreview(
   context: vscode.ExtensionContext,
   output?: vscode.OutputChannel
 ): void {
   output?.appendLine('Live preview enabled.');
-
   context.subscriptions.push(
-    vscode.workspace.onDidChangeTextDocument(e => {
-      const doc = e.document;
-      if (!isBikeshedFile(doc)) return;
+    vscode.workspace.onDidChangeTextDocument((e) => {
+      if (!isBikeshedFile(e.document)) return;
       clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => updatePreview(doc, context, output), 500);
+      debounceTimer = setTimeout(() => showPreview(e.document, output), 500);
     }),
-    vscode.workspace.onDidOpenTextDocument(doc => {
-      if (isBikeshedFile(doc)) updatePreview(doc, context, output);
+    vscode.workspace.onDidOpenTextDocument((doc) => {
+      if (isBikeshedFile(doc)) showPreview(doc, output);
     }),
-    vscode.workspace.onDidRenameFiles(ev => {
-      if (!previewPanel) return;
-      const match = ev.files.find(f => f.oldUri.toString() === previewPanel!.title);
-      if (match) {
-        previewPanel.title = `📘 Preview: ${path.basename(match.newUri.fsPath)}`;
+    vscode.workspace.onDidRenameFiles((ev) => {
+      if (!previewPanel || !currentFile) return;
+      const hit = ev.files.find((f) => f.oldUri.fsPath === currentFile);
+      if (hit) {
+        currentFile = hit.newUri.fsPath;
+        previewPanel.title = `📘 Preview: ${path.basename(currentFile)}`;
       }
     })
   );
@@ -46,14 +42,8 @@ export function disposeLivePreview(): void {
   previewPanel = undefined;
 }
 
-/* ------------------------------------------------------------------ */
-function isBikeshedFile(doc: vscode.TextDocument): boolean {
-  return doc.languageId === 'bikeshed' || path.extname(doc.fileName) === '.bs';
-}
-
-async function updatePreview(
+export async function showPreview(
   doc: vscode.TextDocument,
-  context: vscode.ExtensionContext,
   output?: vscode.OutputChannel
 ): Promise<void> {
   const python = getPythonPath(output);
@@ -66,73 +56,72 @@ async function updatePreview(
     log.show(true);
   }
 
+  await doc.save();
+  currentFile = doc.fileName;
   bsProc?.kill();
 
-  /* ---------- invocation heuristic ---------- */
   const useModule = !bikeshedCli || bikeshedCli.endsWith('.py');
-  const cmd = useModule ? python : bikeshedCli;
+  const cmd = useModule ? python : bikeshedCli!;
   const args = useModule
-    ? ['-m', 'bikeshed', 'spec', '-', '-o', '-']
-    : ['spec', '-', '-o', '-'];
+    ? ['-m', 'bikeshed', 'spec', '-', '-o', '-', '--print']
+    : ['spec', '-', '-o', '-', '--print'];
 
-  bsProc = cp.spawn(cmd, args, { stdio: ['pipe', 'pipe', 'pipe'] });
-
-  const src = doc.getText().replace(/\r\n?/g, '\n');
-  bsProc.stdin.end(src);
-
-  const outBuf: string[] = [];
-  let stderr = '';
-
-  bsProc.stdout.on('data', d => outBuf.push(d.toString()));
-  bsProc.stderr.on('data', d => {
-    stderr += d.toString();
+  bsProc = cp.spawn(cmd, args, {
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
   });
 
-  bsProc.on('close', async code => {
-    const html = outBuf.join('');
+  const src = doc.getText().replace(/\r\n?/g, '\n');
+  bsProc.stdin!.end(src);
 
-    if (/cache\s+is\s+\d+\s+days\s+old/i.test(stderr)) {
-      const now = Date.now();
-      if (now - lastStalePrompt > DAY) {
-        lastStalePrompt = now;
-        const choice = await vscode.window.showInformationMessage(
-          'Bikeshed cache is stale. Update now?',
-          'Yes',
-          'No'
-        );
-        if (choice === 'Yes') {
-          const ok = await ensureBikeshedCache(python, log);
-          if (ok) {
-            await updatePreview(doc, context, output);
-            return;
-          }
-        }
-      }
-    }
+  const stdoutChunks: Buffer[] = [];
+  const stderrChunks: Buffer[] = [];
 
-    if (code !== 0 || !html) {
+  bsProc.stdout!.on('data', (chunk) => {
+    stdoutChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, 'utf8'));
+  });
+
+  bsProc.stderr!.on('data', (chunk) => {
+    stderrChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, 'utf8'));
+  });
+
+  bsProc.on('close', async (code) => {
+    const stdout = Buffer.concat(stdoutChunks).toString('utf8');
+    const stderr = Buffer.concat(stderrChunks).toString('utf8');
+
+    if (code !== 0 || !stdout.trim()) {
       log.appendLine(`[Bikeshed error] ${stderr}`);
       return;
     }
 
-    renderInWebview(html);
+    renderInWebview(stdout);
   });
 
-  bsProc.on('error', err => {
+  bsProc.on('error', (err) => {
     log.appendLine(`[Process error] ${err.message}`);
   });
 }
 
-/* ------------------------------------------------------------------ */
-function renderInWebview(html: string): void {
+function isBikeshedFile(doc: vscode.TextDocument): boolean {
+  return doc.languageId === 'bikeshed' || path.extname(doc.fileName) === '.bs';
+}
+
+function renderInWebview(rawHtml: string): void {
+  const finalHtml = ensureUtf8AndCsp(rawHtml);
+
+  // 💾 Dump HTML to temp file
+  try {
+    const tempPath = path.join(os.tmpdir(), 'bikeshed-preview-debug.html');
+    fs.writeFileSync(tempPath, finalHtml, 'utf8');
+    console.log(`🧪 Bikeshed preview HTML written to: ${tempPath}`);
+  } catch (err) {
+    console.error('❌ Failed to write preview dump:', err);
+  }
+
   if (!previewPanel) {
     previewPanel = vscode.window.createWebviewPanel(
       'bikeshedPreview',
-      `📘 Preview: ${
-        vscode.window.activeTextEditor
-          ? path.basename(vscode.window.activeTextEditor.document.fileName)
-          : ''
-      }`,
+      `📘 Preview: ${path.basename(currentFile ?? '')}`,
       vscode.ViewColumn.Beside,
       { enableScripts: true }
     );
@@ -141,18 +130,21 @@ function renderInWebview(html: string): void {
     });
   }
 
-  previewPanel.webview.html = /<\s*html[\s>]/i.test(html)
-    ? injectCsp(html)
-    : wrapHtml(html);
+  previewPanel.webview.html = finalHtml;
 }
 
-function injectCsp(rawHtml: string): string {
-  return rawHtml.replace(
-    /(<!DOCTYPE[^>]*>\s*<html[^>]*>\s*<head[^>]*>)/i,
-    `$1<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">`
+function ensureUtf8AndCsp(html: string): string {
+  const metaCharset = `<meta charset="utf-8">`;
+  const csp = `<meta http-equiv="Content-Security-Policy" content="
+    default-src 'none';
+    style-src 'unsafe-inline' https:;
+    img-src data: https:;
+    script-src 'unsafe-inline' https:;
+    font-src https:;
+  ">`;
+  const specCSS = `<link rel="stylesheet" href="https://resources.whatwg.org/spec.css">`;
+
+  return html.replace(/<head([^>]*)>/i, (_match, g1) =>
+    `<head${g1}>\n${metaCharset}\n${csp}\n${specCSS}`
   );
-}
-
-function wrapHtml(body: string): string {
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';"><style>html,body{box-sizing:border-box}body{font-family:system-ui,sans-serif;padding:2rem;margin:auto;max-width:900px;line-height:1.6;color:#1a1a1a;background:#fff}</style></head><body>${body}</body></html>`;
 }

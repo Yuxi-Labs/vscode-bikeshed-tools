@@ -23,9 +23,9 @@
       "patterns": [
         {
           "name": "meta.metadata.line.bikeshed",
-          "match": "^(\\w+)(:)(\\s*)(.+)$",
+          "match": "^\\s*([\\w\\- ]+)(:)(\\s*)(.+)$",
           "captures": {
-            "1": { "name": "keyword.other.metadata.key.bikeshed" },
+            "1": { "name": "keyword.other.metadata.bikeshed" },
             "2": { "name": "punctuation.separator.key-value.metadata.bikeshed" },
             "4": { "name": "string.unquoted.metadata.value.bikeshed" }
           }
@@ -76,12 +76,12 @@
 
     {
       "name": "markup.inline.link.bikeshed",
-      "match": "\\\\[\\\\[(.*?)\\\\]\\\\]",
+      "match": "\\[\\[([^\\]]+)\\]\\]",
       "captures": { "1": { "name": "markup.underline.link.bikeshed" } }
     },
     {
       "name": "markup.reference.bikeshed",
-      "match": "\\\\{\\\\{([^}]+)\\\\}\\\\}",
+      "match": "\\{\\{([^}]+)\\}\\}",
       "captures": { "1": { "name": "markup.italic.reference.bikeshed" } }
     }
   ]
