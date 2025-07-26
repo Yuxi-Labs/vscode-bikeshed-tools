@@ -1,25 +1,38 @@
 {
-  "name": "Bikeshed",
   "scopeName": "source.bikeshed",
+  "name": "Bikeshed",
   "fileTypes": ["bs"],
   "uuid": "bikeshed-syntax-2025",
   "patterns": [
-    { "include": "text.html.basic" },
-
-    {
-      "name": "markup.block.metadata.tag.bikeshed",
-      "begin": "(?i)<pre\\s+class=(['\"])(?:metadata)\\1>",
-      "end": "(?i)</pre>",
-      "beginCaptures": { "0": { "name": "entity.name.tag.bikeshed" } },
-      "endCaptures":   { "0": { "name": "entity.name.tag.bikeshed" } }
-    },
-
-    { "name": "comment.line.double-slash.bikeshed", "match": "//.*$" },
-
-    {
-      "name": "meta.metadata.block.bikeshed",
-      "begin": "<pre\\s+class=['\"]metadata['\"]>",
-      "end": "</pre>",
+    { "include": "#metadataTag" },
+    { "include": "#headings" },
+    { "include": "#macros" },
+    { "include": "#comments" },
+    { "include": "#links" },
+    { "include": "#references" },
+    { "include": "#bold" },
+    { "include": "#italic" }
+  ],
+  "repository": {
+    "metadataTag": {
+      "name": "meta.tag.metadata.bikeshed",
+      "begin": "(<)(pre)(\\s+)(class)(=)([\"'])(metadata)([\"'])(>)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.bikeshed" },
+        "2": { "name": "entity.name.tag.bikeshed" },
+        "4": { "name": "entity.other.attribute-name.class.bikeshed" },
+        "5": { "name": "keyword.operator.assignment.bikeshed" },
+        "6": { "name": "string.quoted.double.bikeshed punctuation.definition.string.begin.bikeshed" },
+        "7": { "name": "string.quoted.double.bikeshed string.unquoted.attribute-value.bikeshed" },
+        "8": { "name": "string.quoted.double.bikeshed punctuation.definition.string.end.bikeshed" },
+        "9": { "name": "punctuation.definition.tag.end.bikeshed" }
+      },
+      "end": "(</)(pre)(>)",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.bikeshed" },
+        "2": { "name": "entity.name.tag.bikeshed" },
+        "3": { "name": "punctuation.definition.tag.end.bikeshed" }
+      },
       "patterns": [
         {
           "name": "meta.metadata.line.bikeshed",
@@ -32,57 +45,61 @@
         }
       ]
     },
-
-    { "name": "markup.heading.setext.bikeshed", "match": "^(=+|-+)$" },
-    {
-      "name": "entity.name.section.bikeshed",
-      "match": "^([A-Za-z0-9\\s]+)\\s+\\{#[-_a-zA-Z0-9]+\\}$"
+    "headings": {
+      "patterns": [
+        {
+          "name": "markup.heading.setext.bikeshed",
+          "match": "^(=+|-+)$"
+        },
+        {
+          "name": "entity.name.section.bikeshed",
+          "match": "^([A-Za-z0-9\\s]+)\\s+\\{#[-_a-zA-Z0-9]+\\}$"
+        }
+      ]
     },
-
-    {
+    "macros": {
       "name": "keyword.other.inline.macro.bikeshed",
       "match": "\\[([A-Z_]+)(?:\\s+[^\\]]+)?\\]"
     },
-
-    {
+    "comments": {
+      "name": "comment.line.double-slash.bikeshed",
+      "match": "//.*$"
+    },
+    "links": {
+      "name": "markup.inline.link.bikeshed",
+      "match": "\\[\\[([^\\]]+)\\]\\]",
+      "captures": {
+        "1": { "name": "markup.underline.link.target.bikeshed" }
+      }
+    },
+    "references": {
+      "name": "markup.reference.bikeshed",
+      "match": "\\{\\{([^}]+)\\}\\}",
+      "captures": {
+        "1": { "name": "markup.italic.reference.bikeshed" }
+      }
+    },
+    "bold": {
       "name": "markup.bold.bikeshed",
       "begin": "(?<!\\\\)\\*\\*",
       "end": "\\*\\*(?!\\*)",
-      "beginCaptures": {
-        "0": { "name": "punctuation.definition.bold.begin.bikeshed" }
-      },
-      "endCaptures": {
-        "0": { "name": "punctuation.definition.bold.end.bikeshed" }
-      },
       "patterns": [
-        { "match": "\\\\.", "name": "constant.character.escape.bikeshed" }
+        {
+          "match": "\\\\.",
+          "name": "constant.character.escape.bikeshed"
+        }
       ]
     },
-
-    {
+    "italic": {
       "name": "markup.italic.bikeshed",
       "begin": "(?<![\\\\*])\\*",
       "end": "\\*(?!\\*)",
-      "beginCaptures": {
-        "0": { "name": "punctuation.definition.italic.begin.bikeshed" }
-      },
-      "endCaptures": {
-        "0": { "name": "punctuation.definition.italic.end.bikeshed" }
-      },
       "patterns": [
-        { "match": "\\\\.", "name": "constant.character.escape.bikeshed" }
+        {
+          "match": "\\\\.",
+          "name": "constant.character.escape.bikeshed"
+        }
       ]
-    },
-
-    {
-      "name": "markup.inline.link.bikeshed",
-      "match": "\\[\\[([^\\]]+)\\]\\]",
-      "captures": { "1": { "name": "markup.underline.link.bikeshed" } }
-    },
-    {
-      "name": "markup.reference.bikeshed",
-      "match": "\\{\\{([^}]+)\\}\\}",
-      "captures": { "1": { "name": "markup.italic.reference.bikeshed" } }
     }
-  ]
+  }
 }

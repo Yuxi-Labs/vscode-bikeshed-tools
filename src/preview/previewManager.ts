@@ -18,12 +18,12 @@ export function initLivePreview(
   output?.appendLine('Live preview enabled.');
   context.subscriptions.push(
     vscode.workspace.onDidChangeTextDocument((e) => {
-      if (!isBikeshedFile(e.document)) return;
+      if (!isBikeshedFile(e.document) || !previewPanel) return;
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => showPreview(e.document, output), 500);
     }),
     vscode.workspace.onDidOpenTextDocument((doc) => {
-      if (isBikeshedFile(doc)) showPreview(doc, output);
+      if (isBikeshedFile(doc) && previewPanel) showPreview(doc, output);
     }),
     vscode.workspace.onDidRenameFiles((ev) => {
       if (!previewPanel || !currentFile) return;
