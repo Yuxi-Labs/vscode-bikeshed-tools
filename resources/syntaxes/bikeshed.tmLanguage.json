@@ -2,34 +2,51 @@
   "scopeName": "source.bikeshed",
   "name": "Bikeshed",
   "patterns": [
-    { "include": "#metadata" },
-    { "include": "#headings" },
-    { "include": "#macros" },
-    { "include": "#comments" },
-    { "include": "#links" },
-    { "include": "#references" },
-    { "include": "#bold" },
-    { "include": "#italic" }
+    {
+      "include": "#metadata"
+    },
+    {
+      "include": "#headings"
+    },
+    {
+      "include": "#macros"
+    },
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#links"
+    },
+    {
+      "include": "#references"
+    },
+    {
+      "include": "#bold"
+    },
+    {
+      "include": "#italic"
+    }
   ],
   "repository": {
     "metadata": {
       "name": "meta.metadata.block.bikeshed",
-      "begin": "(?i)<pre\\s+class=['\"]metadata['\"]>",
-      "end": "(?i)</pre>",
+      "begin": "<pre\\s+class=[\"']metadata[\"']\\s*>",
+      "beginCaptures": {
+        "0": { "name": "entity.name.tag.metadata.begin.bikeshed" }
+      },
+      "end": "</pre>",
+      "endCaptures": {
+        "0": { "name": "entity.name.tag.metadata.end.bikeshed" }
+      },
       "patterns": [
         {
           "name": "meta.metadata.line.bikeshed",
-          "match": "^\\s*([\\w\\- ]+)(:)(\\s*)([^\\n]+)",
+          "match": "^\\s*([\\w\\- ]+)(:)(\\s*)(.+)$",
           "captures": {
-            "1": { "name": "keyword.control.metadata.bikeshed" },
-            "2": { "name": "punctuation.separator.key-value.metadata.bikeshed" },
-            "3": { "name": "meta.whitespace.metadata.bikeshed" },
+            "1": { "name": "keyword.other.metadata.bikeshed" },
+            "2": { "name": "punctuation.separator.key-value.bikeshed" },
             "4": { "name": "string.unquoted.metadata.value.bikeshed" }
           }
-        },
-        {
-          "name": "comment.line.metadata.bikeshed",
-          "match": "^\\s*//.*$"
         }
       ]
     },
