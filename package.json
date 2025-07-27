@@ -41,12 +41,8 @@
     "languages": [
       {
         "id": "bikeshed",
-        "aliases": [
-          "Bikeshed"
-        ],
-        "extensions": [
-          ".bs"
-        ],
+        "aliases": ["Bikeshed", "bikeshed"],
+        "extensions": [".bs"],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -62,17 +58,6 @@
         }
       }
     ],
-<<<<<<< HEAD
-=======
-    "languages": [
-      {
-        "id": "bikeshed",
-        "aliases": ["Bikeshed", "bikeshed"],
-        "extensions": [".bs"],
-        "configuration": "./language-configuration.json"
-      }
-    ],
->>>>>>> development
     "commands": [
       { "command": "bikeshedTools.buildSpec",    "title": "Bikeshed: Build Spec" },
       { "command": "bikeshedTools.previewSpec",  "title": "Bikeshed: Preview Spec" },
