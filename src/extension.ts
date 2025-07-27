@@ -18,8 +18,7 @@ import { activateDiagnostics, deactivateDiagnostics } from './utils/diagnostics'
 import { registerCompletions } from './language/completionProvider';
 import { BikeshedHoverProvider } from './language/hoverProvider';
 import { initLivePreview, disposeLivePreview } from './preview/previewManager';
-import { resolveBikeshed } from './utils/resolveBikeshed';
-import { getPythonPath } from './utils/pythonPath';
+import { findDeps } from './utils/dependencies';
 
 let outputChannel: vscode.OutputChannel;
 let client: LanguageClient;
@@ -32,38 +31,39 @@ export async function activate(context: vscode.ExtensionContext) {
   outputChannel.appendLine('🔌 Activating Bikeshed Tools extension…');
 
   try {
-    /* 1 · Python */
-    const python = getPythonPath(outputChannel);
+    /* 1 · Auto‑detect Python & Bikeshed */
+    const { python, bikeshed } = await findDeps();
+    const cfg = vscode.workspace.getConfiguration('bikeshedTools');
+
+    /* 1a · Python */
     if (!python) {
       const pick = await vscode.window.showWarningMessage(
-        'Python not found. Select Python interpreter?',
+        'Python interpreter not found. Select one?',
         'Select',
         'Ignore'
       );
-      if (pick === 'Select') {
-        await selectPython();
-      }
+      if (pick === 'Select') await selectPython();
+    } else {
+      await cfg.update('pythonPath', python, vscode.ConfigurationTarget.Workspace);
+      outputChannel.appendLine(`✅ Python resolved to: ${python}`);
     }
 
-    /* 2 · Bikeshed */
-    const bikeshed = await resolveBikeshed();
-    if (bikeshed) {
-      await vscode.workspace
-        .getConfiguration('bikeshedTools')
-        .update('bikeshedPath', bikeshed, vscode.ConfigurationTarget.Workspace);
-      outputChannel.appendLine(`✅ Bikeshed CLI resolved to: ${bikeshed}`);
-    } else {
+    /* 1b · Bikeshed */
+    if (!bikeshed) {
       const choice = await vscode.window.showWarningMessage(
         'Bikeshed executable not found. Preview & build commands will fail until one is configured.',
         'Select Binary…',
         'Ignore'
       );
-      if (choice === 'Select Binary…') {
-        await selectBikeshed();
-      }
+      if (choice === 'Select Binary…') await selectBikeshed();
+    } else if (bikeshed !== python) { // only save when it is a standalone CLI path
+      await cfg.update('bikeshedPath', bikeshed, vscode.ConfigurationTarget.Workspace);
+      outputChannel.appendLine(`✅ Bikeshed CLI resolved to: ${bikeshed}`);
+    } else {
+      outputChannel.appendLine('ℹ️  Will invoke Bikeshed via "python -m bikeshed"');
     }
 
-    /* 3 · Commands */
+    /* 2 · Commands */
     context.subscriptions.push(
       vscode.commands.registerCommand('bikeshedTools.buildSpec', () =>
         buildSpec(outputChannel)
@@ -75,15 +75,15 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.commands.registerCommand('bikeshedTools.selectBikeshed', selectBikeshed)
     );
 
-    /* 4 · Language goodies */
+    /* 3 · Language goodies */
     context.subscriptions.push(registerCompletions());
     activateDiagnostics(context, outputChannel);
     initLivePreview(context, outputChannel);
     context.subscriptions.push(
-        vscode.languages.registerHoverProvider('bikeshed', new BikeshedHoverProvider())
-      );
+      vscode.languages.registerHoverProvider('bikeshed', new BikeshedHoverProvider())
+    );
 
-    /* 5 · Language server */
+    /* 4 · Language server */
     const serverModule = context.asAbsolutePath(path.join('dist', 'server.js'));
 
     const serverOptions: ServerOptions = {

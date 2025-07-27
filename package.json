@@ -2,9 +2,10 @@
   "name": "vscode-bikeshed-tools",
   "displayName": "Bikeshed Tools",
   "description": "An extension that adds support for developing Bikeshed specs in Visual Studio Code",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "publisher": "yuxi-labs",
   "enableProposedApi": false,
+
   "repository": {
     "type": "git",
     "url": "https://github.com/Yuxi-Labs/vscode-bikeshed-tools"
@@ -14,27 +15,15 @@
   },
   "homepage": "https://www.yuxilabs.com/vscode-bikeshed-tools",
   "icon": "assets/images/icons/bikeshed-tools-icon.png",
-  "galleryBanner": {
-    "color": "#5e3b5b",
-    "theme": "dark"
-  },
-  "engines": {
-    "vscode": "^1.90.0",
-    "node": ">=18.0.0"
-  },
-  "categories": [
-    "Programming Languages"
-  ],
+  "galleryBanner": { "color": "#5e3b5b", "theme": "dark" },
+
+  "engines": { "vscode": "^1.90.0", "node": ">=18.0.0" },
+  "categories": ["Programming Languages"],
   "keywords": [
-    "bikeshed",
-    "spec",
-    "editor",
-    "language support",
-    "W3C",
-    "WHATWG",
-    "markup",
-    "syntax highlighting"
+    "bikeshed", "spec", "editor", "language support",
+    "W3C", "WHATWG", "markup", "syntax highlighting"
   ],
+
   "activationEvents": [
     "onLanguage:bikeshed",
     "onCommand:bikeshedTools.buildSpec",
@@ -42,13 +31,12 @@
     "onCommand:bikeshedTools.selectPython",
     "onCommand:bikeshedTools.selectBikeshed"
   ],
+
   "main": "./dist/extension.js",
+
   "contributes": {
     "snippets": [
-      {
-        "language": "bikeshed",
-        "path": "./resources/snippets/bikeshed.json"
-      }
+      { "language": "bikeshed", "path": "./resources/snippets/bikeshed.json" }
     ],
     "languages": [
       {
@@ -68,44 +56,35 @@
         "scopeName": "source.bikeshed",
         "path": "./resources/syntaxes/bikeshed.tmLanguage.json",
         "embeddedLanguages": {
-          "meta.embedded.block.idl": "webidl",
+          "meta.embedded.block.idl":  "webidl",
           "meta.embedded.block.cddl": "cddl",
-          "meta.embedded.block.css": "css"
+          "meta.embedded.block.css":  "css"
         }
       }
     ],
-    "commands": [
+<<<<<<< HEAD
+=======
+    "languages": [
       {
-        "command": "bikeshedTools.buildSpec",
-        "title": "Bikeshed: Build Spec"
-      },
-      {
-        "command": "bikeshedTools.previewSpec",
-        "title": "Bikeshed: Preview Spec"
-      },
-      {
-        "command": "bikeshedTools.selectPython",
-        "title": "Bikeshed: Select Python Interpreter"
-      },
-      {
-        "command": "bikeshedTools.selectBikeshed",
-        "title": "Bikeshed: Select Bikeshed CLI"
+        "id": "bikeshed",
+        "aliases": ["Bikeshed", "bikeshed"],
+        "extensions": [".bs"],
+        "configuration": "./language-configuration.json"
       }
+    ],
+>>>>>>> development
+    "commands": [
+      { "command": "bikeshedTools.buildSpec",    "title": "Bikeshed: Build Spec" },
+      { "command": "bikeshedTools.previewSpec",  "title": "Bikeshed: Preview Spec" },
+      { "command": "bikeshedTools.selectPython", "title": "Bikeshed: Select Python Interpreter" },
+      { "command": "bikeshedTools.selectBikeshed","title": "Bikeshed: Select Bikeshed CLI" }
     ],
     "menus": {
       "editor/title": [
-        {
-          "command": "bikeshedTools.previewSpec",
-          "when": "resourceExtname == .bs",
-          "group": "navigation"
-        }
+        { "command": "bikeshedTools.previewSpec", "when": "resourceExtname == .bs", "group": "navigation" }
       ],
       "editor/context": [
-        {
-          "command": "bikeshedTools.buildSpec",
-          "when": "resourceExtname == .bs",
-          "group": "navigation"
-        }
+        { "command": "bikeshedTools.buildSpec", "when": "resourceExtname == .bs", "group": "navigation" }
       ]
     },
     "configuration": {
@@ -114,12 +93,12 @@
         "bikeshedTools.bikeshedPath": {
           "type": "string",
           "default": "",
-          "description": "Optional explicit path to the Bikeshed CLI. Leave empty to use “python -m bikeshed” or whatever is on $PATH."
+          "description": "Explicit path to the Bikeshed CLI (optional – auto‑detected if empty)."
         },
         "bikeshedTools.pythonPath": {
           "type": "string",
           "default": "",
-          "description": "Path to the Python interpreter with Bikeshed installed. Leave empty to use 'python' on Windows or 'python3' elsewhere."
+          "description": "Explicit Python interpreter (optional – auto‑detected if empty)."
         },
         "bikeshedTools.livePreview": {
           "type": "boolean",
@@ -129,6 +108,7 @@
       }
     }
   },
+
   "scripts": {
     "publish": "npm run build && npx vsce package -o ./OUTPUT",
     "compile": "npm run check-types && npm run lint && node esbuild.js",
@@ -144,6 +124,7 @@
     "test": "vscode-test",
     "format": "prettier --write ."
   },
+
   "devDependencies": {
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.10",
@@ -164,15 +145,13 @@
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12"
   },
-  "publishConfig": {
-    "registry": "https://registry.npmjs.org/"
-  },
-  "extensionKind": [
-    "workspace"
-  ],
+
   "dependencies": {
     "glob": "^11.0.3",
     "tmp": "^0.2.3",
     "which": "^5.0.0"
-  }
+  },
+
+  "publishConfig": { "registry": "https://registry.npmjs.org/" },
+  "extensionKind": ["workspace"]
 }
