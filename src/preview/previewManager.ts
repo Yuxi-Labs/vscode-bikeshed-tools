@@ -133,5 +133,5 @@ function ensureUtf8AndCsp(html: string): string {
   const specCSS = `<link rel="stylesheet" href="https://resources.whatwg.org/spec.css">`;
 
   return html.replace(/<head([^>]*)>/i,
-    (_m, g1) => `<head${g1}>\n${metaCharset}\n${csp}\n${specCSS}`);
+    (_m, g1) => `<head${g1}>${metaCharset}\n${csp}\n${specCSS}`);
 }

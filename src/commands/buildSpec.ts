@@ -87,7 +87,7 @@ export async function buildSpec(output?: vscode.OutputChannel): Promise<void> {
       if (fs.existsSync(htmlPath)) {
         let html = fs.readFileSync(htmlPath, 'utf8');
         if (!/meta\\s+charset/i.test(html)) {
-          html = html.replace(/<head([^>]*)>/i, `<head$1>\\n<meta charset="utf-8">`);
+          html = html.replace(/<head([^>]*)>/i, `<head$1><meta charset="utf-8">`);
           fs.writeFileSync(htmlPath, html, 'utf8');
           log.appendLine('ℹ️  Injected <meta charset="utf-8"> into output HTML.');
         }
