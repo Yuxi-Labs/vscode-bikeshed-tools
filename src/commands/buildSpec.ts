@@ -2,8 +2,7 @@ import * as vscode from 'vscode';
 import * as cp      from 'child_process';
 import * as path    from 'path';
 import * as fs      from 'fs';
-import { getPythonPath }                         from '../utils/pythonPath';
-import { getBikeshedPath, ensureBikeshedCache }  from '../utils/bikeshedPath';
+import { findDeps, ensureBikeshedCache } from '../utils/dependencies';
 
 /* cache‑staleness prompt control */
 let lastCachePrompt = 0;
@@ -18,16 +17,15 @@ export async function buildSpec(output?: vscode.OutputChannel): Promise<void> {
   }
 
   const doc = editor.document;
-  if (doc.languageId !== 'bikeshed' || path.extname(doc.fileName) !== '.bs') {
+  if (doc.languageId !== 'bikeshed' || path.extname(doc.fileName).toLowerCase() !== '.bs') {
     vscode.window.showErrorMessage('Only .bs (Bikeshed) files are supported.');
     return;
   }
 
-  /* tooling */
-  const pythonPath = getPythonPath(output);
-  const bikeshedCmd = getBikeshedPath(output);
+  /* tooling – unified discovery */
+  const { python: pythonPath, bikeshed } = await findDeps();
   if (!pythonPath) {
-    vscode.window.showErrorMessage('Python path not found or not configured.');
+    vscode.window.showErrorMessage('Python interpreter not found. Configure one first.');
     return;
   }
 
@@ -38,11 +36,11 @@ export async function buildSpec(output?: vscode.OutputChannel): Promise<void> {
   if (!output) { log.clear(); log.show(true); }
 
   /* ---------- invocation heuristic ---------- */
-  const useModule = !bikeshedCmd || bikeshedCmd.endsWith('.py');
-  const cmd  = useModule ? pythonPath : bikeshedCmd!;
+  const useModule = !bikeshed || bikeshed === pythonPath || bikeshed.endsWith('.py');
+  const cmd  = useModule ? pythonPath : bikeshed!;
   const args = useModule
     ? ['-m', 'bikeshed', 'spec', filePath]
-    : ['spec', filePath];                    // 🔧 no duplicate path
+    : ['spec', filePath];
 
   /* ------------------------------------------------------------------ */
   async function run(): Promise<{ code: number; stdout: string; stderr: string }> {
@@ -67,7 +65,7 @@ export async function buildSpec(output?: vscode.OutputChannel): Promise<void> {
   log.appendLine(
     useModule
       ? `▶ "${pythonPath}" -m bikeshed spec "${filePath}"`
-      : `▶ "${bikeshedCmd}" spec "${filePath}"`
+      : `▶ "${bikeshed}" spec "${filePath}"`
   );
 
   let { code, stdout, stderr } = await run();
@@ -88,8 +86,8 @@ export async function buildSpec(output?: vscode.OutputChannel): Promise<void> {
       const htmlPath = filePath.replace(/\.bs$/i, '.html');
       if (fs.existsSync(htmlPath)) {
         let html = fs.readFileSync(htmlPath, 'utf8');
-        if (!/meta\s+charset/i.test(html)) {
-          html = html.replace(/<head([^>]*)>/i, `<head$1>\n<meta charset="utf-8">`);
+        if (!/meta\\s+charset/i.test(html)) {
+          html = html.replace(/<head([^>]*)>/i, `<head$1>\\n<meta charset="utf-8">`);
           fs.writeFileSync(htmlPath, html, 'utf8');
           log.appendLine('ℹ️  Injected <meta charset="utf-8"> into output HTML.');
         }
@@ -98,7 +96,7 @@ export async function buildSpec(output?: vscode.OutputChannel): Promise<void> {
       log.appendLine(`⚠️  Could not post‑process HTML for charset: ${(e as Error).message}`);
     }
 
-    const cacheWarning = /cache\s+is\s+\d+\s+days\s+stale/i.test(stdout);
+    const cacheWarning = /cache\\s+is\\s+\\d+\\s+days\\s+stale/i.test(stdout);
     if (cacheWarning && Date.now() - lastCachePrompt > ONE_DAY) {
       lastCachePrompt = Date.now();
       const choice = await vscode.window.showInformationMessage(
