@@ -24,60 +24,81 @@
 </p>
 
 
-This extension enables spec editors to author, preview and build [Bikeshed](https://tabatkins.github.io/bikeshed/) specifications without leaving VS Code.
+This VS Code extension enables spec developers to write, preview and build Bikeshed specifications without leaving the editor.
 
-## Features
+
+<img src="/assets/images/bikeshed-syntax.png" alt="bikeshed-syntax"/>
+
+FEATURES
+--------
 
 - Syntax Highlighting  
-  Makes your spec easier to scan and less soul-crushing to edit.
+  Makes .bs specs easier to read and less error-prone.
 
 - Snippets & Suggestions  
-  Common metadata and macros just a few keystrokes away.
+  Common metadata, boilerplate, and macros—available with a keystroke.
 
 - Hover Info  
-  Explanations of macros and metadata without leaving the editor.
+  See explanations of Bikeshed macros and metadata without leaving your editor.
 
 - Build Command  
-  Run `Bikeshed: Build Spec` to generate your spec from `.bs` source.
+  Use the command palette (“Bikeshed: Build Spec”) to generate HTML from your Bikeshed source.
 
-- Live Preview  
-  Auto-updating HTML preview side-by-side with your source. See your doc come alive on save.
+- Live Preview  (Experimental)
+  Instantly view the generated HTML next to your source. Preview refreshes on save.
 
 - Error Feedback  
-  Bikeshed errors go directly to the output panel and status bar. No more playing detective in your terminal.
+  Bikeshed warnings and errors appear in the VS Code output panel, so you never have to hunt in the terminal.
 
-## Getting Started
+QUICK START
+-----------
 
-1. Install Bikeshed CLI  
-   You need [Python](https://www.python.org) installed. Then:
+1. **Install Python and Bikeshed**  
+   You must have Python installed (3.7+ recommended). Then open your terminal and run:
+```bash
+python3 -m pip install --upgrade bikeshed
+bikeshed update
+```
+2. **Configure Paths (if needed)**  
+   If Bikeshed isn’t globally available (e.g., you used a virtual environment), set the path in your VS Code settings (either via the Settings UI or `.vscode/settings.json`):
+```bash
+{
+  "bikeshedTools.pythonPath": "/path/to/python",
+  "bikeshedTools.bikeshedPath": "/path/to/bikeshed"
+}
+```
+Leave either field blank to let the extension auto-detect.
 
-   ```bash
-   python3 -m pip install --upgrade bikeshed
-   bikeshed update
-   ```
+3. **Create and Edit Specs**
+  - Open or create a file with the `.bs` extension.
+  - Add your `<pre class="metadata">` block and start editing.
+  - Use the command palette (Ctrl+Shift+P or Cmd+Shift+P) and run “Bikeshed: Build Spec” to build your document.
+  - To see the live HTML preview, save your `.bs` file.
 
-2. Tell VS Code where to find it
-   If it's not globally available (e.g., installed in a virtualenv), set the path in your settings.json:
+TROUBLESHOOTING
+---------------
 
-   ```json
-   {
-    "bikeshedTools.bikeshedPath": "/path/to/bikeshed"
-   }
-   ```
+- If Bikeshed or Python are not found, you’ll be prompted to select them on first use.
+- Bikeshed’s cache must be updated (run `bikeshed update` in your terminal) before first use.
+- Most issues can be solved by making sure Python and Bikeshed are up to date and available on your system PATH, or by setting the correct paths in your workspace settings.
 
-3. Start Writing
+KNOWN LIMITATIONS
+-----------------
 
-   Create a .bs file and add a `<pre class="metadata">` block to begin. Use the command palette to run Bikeshed: Build Spec.
+- Live typing speed needs improvement
+- Syntax highlighting is intentionally basic; the Bikeshed language evolves fast
+- Inline linting (error squiggles) is not yet implemented
 
-5. Known Limitations
-   - Preview only updates on save (live typing is coming)
-   - Syntax highlighting is basic — Bikeshed's grammar is complex and evolving
-   - No inline linting... yet
+ROADMAP
+-------
 
-6. Roadmap
-    - Inline error squiggles (diagnostics)
-    - Better autocomplete for macros and metadata
-    - Smarter preview refresh
-    - Command to open generated HTML in browser
-    - Full Bikeshed grammar support
-    
+- Inline diagnostics (error squiggles)
+- Better autocomplete for macros and metadata
+- Smarter, real-time preview
+- Command to open generated HTML in your browser
+- More complete Bikeshed grammar support
+
+---
+
+For support, updates, or to file issues, visit:
+https://github.com/Yuxi-Labs/vscode-bikeshed-tools
